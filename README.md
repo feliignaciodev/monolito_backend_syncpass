@@ -1,130 +1,140 @@
 # SyncPass API
 
-Backend monolitico modular para SyncPass. La aplicacion se despliega como un solo servicio Spring Boot; el codigo se organiza por modulos funcionales para mantener limites claros sin introducir microservicios.
+Backend monolitico modular para SyncPass. Se despliega como una aplicacion Spring Boot y organiza el codigo por funcionalidad, sin separar servicios.
 
-## Resumen del proyecto
+## 🧭 Contexto rapido
 
-| Area | Decision |
+| Componente | Tecnologia / estado |
 |---|---|
 | Backend | Java 21, Spring Boot 4.1.1, Maven |
-| API | REST bajo `/api/v1` |
+| API | REST, prefijo previsto `/api/v1` |
 | Identidad | Amazon Cognito User Pool |
-| Autorizacion | Spring Security, JWT de Cognito y grupos como roles |
-| Datos | PostgreSQL administrado por Supabase |
-| Despliegue previsto | EC2 con rol IAM y configuracion fuera del repositorio |
+| Persistencia | PostgreSQL de Supabase mediante JDBC/JPA |
+| Migraciones | Flyway; Hibernate `ddl-auto=validate` |
+| Aplicacion movil | Pendiente de integrar; su tecnologia/repositorio no esta en este workspace |
+| Despliegue | EC2 pendiente |
 
-La API no debe guardar contrasenas. Cognito administra las credenciales y emite los tokens; PostgreSQL guardara los perfiles y datos propios del dominio. El `sub` del token sera la identidad externa que vincule al usuario de Cognito con el perfil local.
+Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los datos propios del sistema. El `sub` de Cognito vincula ambos. La API no debe almacenar contrasenas.
 
-### Que existe hoy
+### ✅ Existe en el codigo
 
-- Validacion de firma, emisor, expiracion, `token_use=access` y `client_id` de los JWT.
+- Validacion JWT de firma, emisor, expiracion, `token_use=access` y `client_id`.
 - Conversor de `cognito:groups` a autoridades `ROLE_<GRUPO>`.
-- `GET /api/v1/me`, protegido, devuelve el `sub` y roles del token.
-- `GET /actuator/health`, publico; el resto de las rutas exige autenticacion.
-- Cliente AWS SDK preparado para usar la cadena estandar de credenciales y el rol IAM de EC2.
-- Pruebas con H2 para carga del contexto, salud, acceso anonimo y conversion de roles.
+- Endpoint protegido `GET /api/v1/me`.
+- `GET /actuator/health` publico y resto de rutas autenticadas.
+- Entidades y repositorios iniciales `Rol` y `Usuario`.
+- Servicios y DTO iniciales de Cognito/usuarios, aun no terminados ni validados de extremo a extremo.
+- Migracion inicial `src/main/resources/db/migration/V1__create_roles_and_users.sql`.
+- Cliente AWS SDK que usa la cadena estandar de credenciales.
 
-Todavia no existen login propio, entidades/repositorios del dominio, CRUD, tablas, migraciones ni despliegue. Hibernate usa `ddl-auto=validate`: no crea ni modifica el esquema.
+### 📍 Estado comprobado
 
-## Ruta de trabajo
+- ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio).
+- ✅ La aplicacion llego a conectarse correctamente al Session pooler de Supabase.
+- ✅ Se identifico el primer bloqueo de ejecucion: Hibernate no encontraba `rol`.
+- ✅ Flyway V1 se ejecuto en H2 y sus tablas pasaron la validacion de Hibernate en las pruebas.
+- ❌ Aun falta comprobar que Flyway aplique V1 en Supabase real y que la aplicacion arranque contra esa base.
+- ❌ Cognito real, login HTTP, CRUD, app movil y EC2 todavia no estan integrados.
 
-1. **Acordar el dominio y el contrato:** revisar el documento de contexto completo; definir entidades, campos, relaciones, reglas de propiedad, permisos por rol, estados de usuario y comportamiento de cuentas sin perfil local.
-2. **Preparar ambientes:** crear Cognito de desarrollo y Supabase; cargar sus valores como variables locales. Mantener separados desarrollo, pruebas y produccion.
-3. **Definir y versionar el esquema:** escribir migraciones SQL revisables para tablas, claves, restricciones e indices. Aplicarlas primero en una base de desarrollo; no depender de cambios automaticos de Hibernate.
-4. **Implementar persistencia:** entidades, repositorios y servicios por modulo; validar contra PostgreSQL real, ademas de H2 cuando sea util.
-5. **Cerrar seguridad y perfil local:** probar 401/403; definir acceso por rol y por recurso; implementar la asociacion segura de `sub` con el perfil local y la politica de usuarios desactivados.
-6. **Construir funcionalidades:** en orden, login Cognito (`POST /auth/login`), administracion de usuarios, proyectos, participantes y catalogos; incluir validacion, errores consistentes y pruebas.
-7. **Probar integracion y fallos:** verificar tokens reales, grupos, usuario inexistente, errores de Cognito o PostgreSQL y consistencia cuando una operacion externa falla parcialmente.
-8. **Desplegar en EC2:** crear rol IAM, red y almacenamiento de secretos; ejecutar el JAR como servicio; agregar HTTPS, health check, logs, monitoreo y procedimiento de actualizacion/rollback.
+## 🗺️ Ruta de trabajo / tickets
 
-No se debe migrar ni alterar la base existente hasta acordar el esquema y revisar los datos actuales.
+Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente. Actualizar este listado al completar cada ticket.
 
-## Configurar Amazon Cognito
+### Fase 1 — Base de datos y arranque
 
-En la consola de AWS, en la region elegida:
+- [x] ✅ **DB-01 — Crear Supabase de desarrollo.** Proyecto creado en Ohio.
+- [x] ✅ **DB-02 — Conectar Spring a Supabase.** El log confirmo `HikariPool - Start completed` y PostgreSQL 17.11.
+- [x] ✅ **DB-03 — Crear migracion V1.** Define `rol`, `usuario` y los cuatro roles iniciales.
+- [ ] ❌ **DB-04 — Aplicar V1 en Supabase.** Recargar Maven en IntelliJ y arrancar; confirmar en logs que Flyway aplica version 1, Hibernate valida y Spring termina con `Started SyncPassApiApplication`.
+- [ ] ❌ **DB-05 — Inspeccionar el esquema remoto.** En Supabase, verificar tablas `rol`, `usuario`, `flyway_schema_history` y los cuatro roles. Confirmar que no se crearon duplicados manualmente.
+- [ ] ❌ **DB-06 — Proteger credenciales.** Revisar que la contrasena de base de datos real solo este en IntelliJ local, nunca en Git, README, capturas o logs.
 
-1. Crear un **User Pool**. Definir como se identifican los usuarios (por ejemplo, email) y si la verificacion de email sera obligatoria.
-2. Crear un **App client sin client secret** para la aplicacion. Habilitar `ALLOW_USER_PASSWORD_AUTH` solo si se implementara el login del backend con `InitiateAuth`; no usar un secreto de cliente en una app que no puede protegerlo.
-3. Crear estos grupos, con los nombres exactos que espera la API:
-   - `ADMINISTRADOR`
-   - `COORDINADOR`
-   - `VOLUNTARIO`
-   - `BENEFICIARIO`
-4. Para pruebas, crear usuarios ficticios y asignar cada uno al grupo que corresponda. No usar cuentas reales ni contrasenas compartidas.
-5. Guardar el **Region**, **User Pool ID** y **App client ID**. No guardar contrasenas ni tokens en Git.
-6. Confirmar que un access token emitido tenga `iss`, `sub`, `token_use=access`, `client_id` y, para los usuarios de prueba, `cognito:groups`.
+### Fase 2 — Cognito y seguridad del backend
 
-Configurar estas variables para la API:
+- [ ] ❌ **AUTH-01 — Crear Cognito de desarrollo.** User Pool, App Client sin secreto, flujo de password auth si se mantiene login backend, y grupos exactos `ADMINISTRADOR`, `COORDINADOR`, `VOLUNTARIO`, `BENEFICIARIO`.
+- [ ] ❌ **AUTH-02 — Configurar variables Cognito.** `AWS_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_ISSUER`; validar issuer exacto del User Pool.
+- [ ] ❌ **AUTH-03 — Probar JWT real.** Confirmar access token con `iss`, `sub`, `token_use=access`, `client_id` y grupos. Verificar 401 sin token/incorrecto y 403 con rol insuficiente.
+- [ ] ❌ **AUTH-04 — Terminar login HTTP.** Crear controller y contrato `POST /auth/login`; dejarlo publico en Spring Security, validar entrada, responder con access token y perfil sin registrar contrasenas ni tokens.
+- [ ] ❌ **AUTH-05 — Resolver perfil y autorizacion.** Definir que hacer si existe usuario Cognito sin fila local, si tiene varios grupos, si no tiene grupo y como aplicar desactivacion y permisos por recurso.
+- [ ] ❌ **AUTH-06 — Endpoints de usuario.** Completar `POST /api/v1/usuarios`, consulta y `PATCH` de activo; manejar consistencia/compensacion si Cognito tiene exito y PostgreSQL falla, o viceversa.
 
-| Variable | Valor |
+### Fase 3 — Dominio y API
+
+- [ ] ❌ **API-01 — Acordar contrato funcional.** Revisar el documento de contexto de la API; fijar entidades, campos, relaciones, paginacion, errores y permisos por rol/recurso antes de ampliar el esquema.
+- [ ] ❌ **API-02 — Completar proyectos.** Migraciones, modelo, repositorios, servicios, controllers, DTOs, validacion y pruebas.
+- [ ] ❌ **API-03 — Completar participantes y catalogos.** Aplicar el mismo flujo y restricciones por rol.
+- [ ] ❌ **API-04 — Integracion y regresion.** Probar contra PostgreSQL de desarrollo y Cognito de desarrollo; cubrir casos felices, datos invalidos, conflictos, 401/403 y fallos externos.
+- [ ] ❌ **API-05 — Documentar contrato.** Publicar OpenAPI/Swagger o una especificacion equivalente para que la app movil integre rutas y respuestas sin adivinar.
+
+### Fase 4 — Aplicacion movil
+
+- [ ] ❌ **MOBILE-01 — Identificar y revisar el proyecto movil.** Confirmar framework (Android/iOS/Flutter/React Native), repositorio, version y como se distribuyen builds de desarrollo.
+- [ ] ❌ **MOBILE-02 — Acordar flujo de autenticacion.** Consumir el contrato de login definido; decidir si la app recibe el access token del backend o autentica directamente contra Cognito. No implementar ambos flujos a la vez.
+- [ ] ❌ **MOBILE-03 — Configurar ambientes.** Usar URL de API distinta para desarrollo/staging/produccion. En desarrollo local desde un telefono, `localhost` apunta al telefono, no a la PC; usar IP accesible o tunel de desarrollo. No incluir secretos de servidor en la app.
+- [ ] ❌ **MOBILE-04 — Manejar sesion de forma segura.** Enviar `Authorization: Bearer <access_token>`; almacenar tokens solo en almacenamiento seguro del sistema operativo; no guardar contrasenas; definir expiracion, refresh/logout y respuesta ante 401/403.
+- [ ] ❌ **MOBILE-05 — Integrar pantallas y contratos.** Login, perfil, proyectos y funcionalidades acordadas; estados de carga/error/sin conexion; probar dispositivos y versiones soportadas.
+- [ ] ❌ **MOBILE-06 — Validar extremo a extremo.** Probar la app contra backend de desarrollo con usuarios y grupos de prueba, sin datos personales reales.
+
+### Fase 5 — Despliegue
+
+- [ ] ❌ **DEPLOY-01 — Preparar EC2.** Linux con Java 21, red restringida y servicio con usuario sin privilegios.
+- [ ] ❌ **DEPLOY-02 — Rol IAM.** Instance Profile con solo permisos necesarios para Cognito/lectura de secretos; sin access keys estaticas ni politicas administrativas amplias.
+- [ ] ❌ **DEPLOY-03 — Secretos y red.** Inyectar configuracion con Secrets Manager o Parameter Store; configurar acceso saliente desde EC2 a Supabase y restringir accesos administrativos.
+- [ ] ❌ **DEPLOY-04 — HTTPS y observabilidad.** TLS en Load Balancer/proxy, health checks, logs, alertas y manejo seguro de datos sensibles.
+- [ ] ❌ **DEPLOY-05 — Publicacion y recuperacion.** Build versionado, aplicacion de migraciones revisadas, backup, despliegue gradual y procedimiento de rollback probado.
+
+## 🧪 Verificacion inmediata para continuar
+
+1. En IntelliJ, abrir **Maven** y pulsar **Reload All Maven Projects** o aceptar la notificacion **Load Maven Changes**.
+2. Ejecutar `SyncPassApiApplication` con las variables de Supabase ya configuradas.
+3. En los logs, buscar en este orden:
+   - `Successfully validated 1 migration` y `Successfully applied 1 migration ... version v1` (si aun no existia Flyway history).
+   - `HikariPool - Start completed`.
+   - Hibernate inicializado sin `Schema validation: missing table`.
+   - `Started SyncPassApiApplication`.
+4. En Supabase, abrir **Table Editor** y comprobar `rol`, `usuario` y `flyway_schema_history`; en `rol`, confirmar los cuatro nombres esperados.
+5. Si hay error, compartir solo el primer `ERROR` y el `Caused by` relevante. Ocultar contrasenas, tokens y cadenas completas de conexion.
+
+La conexion JDBC confirmada para el proyecto actual usa **Session pooler**. La URL debe incluir el host/puerto/DB mostrados por Supabase y el usuario con el identificador del proyecto. Mantener usuario y contrasena en variables separadas (`DB_USER`, `DB_PASSWORD`); nunca publicar la contrasena.
+
+## ⚙️ Configuracion local
+
+`.env.example` es una referencia: Spring no carga archivos `.env` automaticamente. Configurar variables en IntelliJ (**Run → Edit Configurations → Environment variables**) o en la terminal:
+
+| Variable | Proposito |
 |---|---|
-| `AWS_REGION` | Region del User Pool, por ejemplo `us-east-1` |
-| `COGNITO_USER_POOL_ID` | ID del User Pool; se usara en operaciones administrativas |
-| `COGNITO_CLIENT_ID` | ID del App client sin secreto |
+| `DB_URL` | URL JDBC de Supabase Session pooler, incluyendo `sslmode=require` |
+| `DB_USER` | Usuario completo mostrado por Supabase, incluyendo sufijo del proyecto |
+| `DB_PASSWORD` | Contrasena de PostgreSQL de Supabase |
+| `AWS_REGION` | Region del User Pool |
+| `COGNITO_USER_POOL_ID` | Identificador del User Pool |
+| `COGNITO_CLIENT_ID` | Identificador del App Client |
 | `COGNITO_ISSUER` | `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` |
 
-La validacion JWT usa las claves publicas del User Pool y no necesita claves AWS. Las credenciales IAM se necesitaran cuando el backend invoque operaciones administrativas del SDK. En EC2 se deben entregar mediante un rol IAM asociado a la instancia, nunca mediante access keys guardadas en archivos.
-
-## Configurar Supabase / PostgreSQL
-
-1. Crear un proyecto Supabase y elegir una region cercana a la EC2 prevista.
-2. Desde **Connect**, obtener los datos de PostgreSQL. Para una EC2 de larga ejecucion, preferir una conexion persistente directa o el **Session pooler**. Usar el Transaction pooler solo despues de validar compatibilidad y limites con JDBC/JPA.
-3. Habilitar SSL y restringir el acceso de red si la configuracion del proyecto lo permite. La EC2 debe poder salir hacia el host/puerto de PostgreSQL; si se restringen redes de entrada en Supabase, autorizar la IP publica de salida estable de la EC2/NAT.
-4. Crear/usar un usuario de base de datos con permisos minimos para la aplicacion. Mantener las credenciales administrativas fuera del runtime de la API.
-5. Configurar:
-
-| Variable | Valor |
-|---|---|
-| `DB_URL` | JDBC, por ejemplo `jdbc:postgresql://<host>:5432/postgres?sslmode=require` (usar host y puerto exactos de Supabase) |
-| `DB_USER` | Usuario PostgreSQL indicado por Supabase |
-| `DB_PASSWORD` | Contrasena de ese usuario, solo como secreto de entorno |
-
-El proyecto aun no incluye migraciones ni tablas de negocio. Cuando se incorporen entidades, aplicar las migraciones antes de iniciar el backend: `ddl-auto=validate` comprueba que el esquema coincida, pero no lo crea ni lo actualiza. No ejecutar cambios de esquema directamente desde Hibernate en produccion.
-
-## Configuracion local
-
-`.env.example` es una referencia, no se carga automaticamente por Spring ni por Maven. Configura las variables en el IDE o en la terminal. No agregues un `.env` real al repositorio.
-
-Ejemplo de sesion PowerShell (sustituir los valores localmente):
+Para ejecutar pruebas:
 
 ```powershell
-$env:DB_URL = "jdbc:postgresql://<host>:5432/postgres?sslmode=require"
-$env:DB_USER = "<usuario>"
-$env:DB_PASSWORD = "<contrasena>"
-$env:AWS_REGION = "<region>"
-$env:COGNITO_USER_POOL_ID = "<user-pool-id>"
-$env:COGNITO_CLIENT_ID = "<app-client-id>"
-$env:COGNITO_ISSUER = "https://cognito-idp.<region>.amazonaws.com/<user-pool-id>"
-
 .\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
 ```
 
-Para llamadas AWS desde el equipo local, usar un perfil AWS configurado en la cadena estandar del SDK. No copiar credenciales personales en el repositorio.
+Las pruebas usan H2. No prueban conectividad real con Cognito ni con Supabase.
 
-## Despliegue previsto en EC2
+## 🛡️ Precauciones importantes
 
-### Red y acceso
+- **Migraciones:** V1 se aplica automaticamente mediante Flyway. La primera migracion esta pensada para una base nueva. Si ya se crearon tablas manualmente, detenerse y revisar antes de arrancar. Una vez aplicada en un ambiente compartido, no editar V1: agregar V2, V3, etc.
+- **Entornos:** mantener Cognito y Supabase de desarrollo separados de produccion; no probar migraciones destructivas en produccion.
+- **Contraseñas y claves:** no versionar `.env`, credenciales, tokens, client secrets ni contrasenas. Un App Client movil no debe tener client secret. Si una credencial real se expone, rotarla.
+- **JWT:** aceptar solo access tokens del issuer/client correctos. No registrar tokens. Roles de grupos no sustituyen autorizacion de pertenencia/propiedad de cada recurso.
+- **Supabase RLS:** este backend usa JDBC/JPA directo; no asumir que las politicas RLS de la Data API protegen automaticamente las consultas del servidor. Usar credenciales de base limitadas y aplicar autorizacion en la API; evaluar un rol PostgreSQL dedicado antes de produccion.
+- **Cognito y base de datos:** no existe transaccion compartida entre ambos servicios. Definir reintentos, idempotencia y compensacion ante fallos parciales antes de activar altas/bajas de usuarios.
+- **Datos personales:** usar datos ficticios en pruebas, minimizar lo que se registra y no exponer detalles internos por Actuator.
+- **Red movil:** la app no debe conectarse directamente a Supabase ni incluir credenciales de base; solo consume la API por HTTPS en ambientes publicados.
+- **Operaciones:** no ejecutar `ddl-auto=create`, `update` o scripts manuales improvisados. Conservar `validate`, revisar cada SQL y confirmar backups antes de cambios de esquema.
 
-- Usar una instancia Linux compatible con Java 21 y desplegar el JAR construido con Maven.
-- Asignar un **Instance Profile / rol IAM** a la EC2. Dar solo permisos necesarios para las operaciones de Cognito que implemente el backend, limitados al User Pool correcto. No adjuntar permisos administrativos generales.
-- Restringir SSH a IPs administrativas o preferir AWS Systems Manager Session Manager.
-- No exponer PostgreSQL a toda Internet. Limitar el acceso a la salida estable de EC2/NAT cuando Supabase permita restricciones de red.
-- Para produccion, terminar HTTPS en un Application Load Balancer o proxy inverso con certificado TLS. No publicar directamente el puerto de la aplicacion como endpoint HTTP abierto.
-
-### Configuracion y operacion
-
-- Inyectar `DB_URL`, `DB_USER`, `DB_PASSWORD`, `AWS_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` y `COGNITO_ISSUER` desde AWS Systems Manager Parameter Store o Secrets Manager. Para secretos, preferir Secrets Manager o parametros `SecureString`.
-- Conceder al rol de EC2 solo lectura de los parametros/secretos necesarios. Evitar claves AWS estaticas, secretos en el JAR, en la AMI o en Git.
-- Ejecutar la app con un usuario de sistema sin privilegios y como servicio (por ejemplo, systemd). Configurar reinicio controlado, logs y limites de recursos.
-- Configurar el health check del balanceador hacia `/actuator/health`. El endpoint es publico y solo debe exponer estado general, nunca detalles sensibles.
-- Centralizar logs y alertas (por ejemplo, CloudWatch), monitorizar disponibilidad, errores, uso de memoria y conexiones a PostgreSQL.
-- Automatizar despliegue, respaldo/verificacion de migraciones y rollback. Probar primero en desarrollo/staging.
-
-Build del artefacto:
+## 🏗️ Build
 
 ```powershell
 .\mvnw.cmd clean test package
 ```
 
-El JAR se genera en `target/`. Los detalles de servicio, red y secretos se completaran cuando se conozcan la region, el sistema operativo/arquitectura de EC2 y el metodo de despliegue elegido.
+El JAR se genera en `target/`. El siguiente hito es cerrar **DB-04/DB-05**: confirmar migracion y arranque exitosos en Supabase real; luego avanzar a **AUTH-01**.
