@@ -1,0 +1,18 @@
+[Unit]
+Description=SyncPass API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=syncpass
+Group=syncpass
+WorkingDirectory=/opt/syncpass
+ExecStart=/opt/syncpass/start.sh
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

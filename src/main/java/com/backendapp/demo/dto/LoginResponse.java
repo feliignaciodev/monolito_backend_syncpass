@@ -1,11 +1,5 @@
 package com.backendapp.demo.dto;
 
-public record LoginResponse(
-        String token,
-        String rol,
-        long expiraEn,
-        UsuarioResumen usuario) {
-
-    public record UsuarioResumen(Long id, String nombre) {
-    }
+/** Respuesta de login exitoso: access token de Cognito + datos del usuario. */
+public record LoginResponse(String token, UsuarioDto usuario) {
 }

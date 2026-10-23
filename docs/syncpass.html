@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SyncPass API</title>
+<meta name="description" content="Documentación, plan de trabajo y bitácora del backend monolito de SyncPass (Spring Boot + Cognito + Supabase + EC2).">
+<style>
+  :root {
+    --verde-profundo: #163A32;
+    --amarillo: #F2C500;
+    --gris-verde: #E4EAE6;
+    --verde: #1F574C;
+    --gris: #7A807E;
+    --fondo: #F7F9F7;
+    --blanco: #FFFFFF;
+
+    --bg: var(--fondo);
+    --surface: var(--blanco);
+    --surface-alt: var(--gris-verde);
+    --text: var(--verde-profundo);
+    --text-muted: var(--gris);
+    --border: var(--gris-verde);
+    --primary: var(--verde);
+    --primary-strong: var(--verde-profundo);
+    --accent: var(--amarillo);
+    --on-primary: var(--blanco);
+    --on-accent: var(--verde-profundo);
+    --ok: var(--verde);
+    --code-bg: var(--gris-verde);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F2621;
+      --surface: var(--verde-profundo);
+      --surface-alt: #1A453C;
+      --text: var(--fondo);
+      --text-muted: #A9B1AE;
+      --border: var(--verde);
+      --primary: #2C7564;
+      --primary-strong: #0B1E1A;
+      --on-primary: var(--blanco);
+      --ok: #7CC4AE;
+      --code-bg: #0B1E1A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F2621;
+    --surface: var(--verde-profundo);
+    --surface-alt: #1A453C;
+    --text: var(--fondo);
+    --text-muted: #A9B1AE;
+    --border: var(--verde);
+    --primary: #2C7564;
+    --primary-strong: #0B1E1A;
+    --on-primary: var(--blanco);
+    --ok: #7CC4AE;
+    --code-bg: #0B1E1A;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--primary); }
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .88em; }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+
+  header.hero {
+    background: var(--primary-strong);
+    color: var(--on-primary);
+    padding: 40px 16px 32px;
+    border-bottom: 6px solid var(--accent);
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .hero .wrap { padding: 0; }
+  .hero .kicker { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .8rem; }
+  .hero h1 { margin: 6px 0 8px; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.15; }
+  .hero p { margin: 0; max-width: 720px; color: #D5DED9; }
+  .hero .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .8rem; font-weight: 600; background: rgba(255,255,255,.1); color: var(--on-primary);
+  }
+  .pill.accent { background: var(--accent); color: var(--on-accent); }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  nav.toc .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; padding-bottom: 8px; }
+  nav.toc a {
+    white-space: nowrap; text-decoration: none; color: var(--text);
+    padding: 6px 10px; border-radius: 6px; font-size: .9rem;
+  }
+  nav.toc a:hover { background: var(--surface-alt); }
+
+  main section { padding: 32px 0 8px; }
+  h2 { font-size: 1.5rem; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  h2::before { content: ""; width: 6px; height: 1.1em; background: var(--accent); border-radius: 3px; }
+  h3 { font-size: 1.1rem; margin: 20px 0 8px; }
+  .muted { color: var(--text-muted); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+  }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card h4 { margin: 0 0 6px; font-size: 1rem; }
+  .card p { margin: 0; }
+
+  .now {
+    background: var(--surface); border: 2px solid var(--accent); border-radius: 12px;
+    padding: 18px 20px; margin-top: 24px;
+  }
+  .now strong.label { color: var(--primary); text-transform: uppercase; font-size: .78rem; letter-spacing: .06em; }
+  .now p { margin: 6px 0 0; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 12px; overflow: hidden; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-alt); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+
+  .status { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+  .s-hecho { background: var(--primary); color: var(--on-primary); }
+  .s-curso { background: var(--accent); color: var(--on-accent); }
+  .s-pend { background: var(--surface-alt); color: var(--text-muted); }
+  .who { font-size: .78rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap; }
+
+  /* Diagrama de arquitectura */
+  .arch { display: grid; gap: 10px; grid-template-columns: 1fr; }
+  .arch .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; justify-content: center; }
+  .node {
+    flex: 1 1 200px; max-width: 320px; background: var(--surface); border: 1px solid var(--border);
+    border-top: 4px solid var(--primary); border-radius: 10px; padding: 12px 14px;
+  }
+  .node.app { border-top-color: var(--accent); }
+  .node h4 { margin: 0 0 4px; font-size: .98rem; }
+  .node p { margin: 0; font-size: .88rem; color: var(--text-muted); }
+  .arrow { text-align: center; color: var(--text-muted); font-size: .85rem; }
+  .arrow::before { content: "↓"; display: block; font-size: 1.3rem; color: var(--primary); line-height: 1; }
+
+  /* Bitácora */
+  ol.log { list-style: none; padding: 0; margin: 0; border-left: 3px solid var(--border); }
+  ol.log li { position: relative; padding: 0 0 18px 20px; }
+  ol.log li::before {
+    content: ""; position: absolute; left: -8px; top: 6px; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--primary); border: 2px solid var(--bg);
+  }
+  ol.log li.current::before { background: var(--accent); }
+  ol.log .when { font-size: .8rem; color: var(--text-muted); font-weight: 600; }
+  ol.log h4 { margin: 2px 0 4px; font-size: 1rem; }
+  ol.log p, ol.log ul { margin: 4px 0; }
+
+  footer { padding: 32px 0 48px; color: var(--text-muted); font-size: .85rem; }
+
+  @media (max-width: 600px) {
+    th, td { padding: 8px; font-size: .9rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">DSY1105 · Duoc UC · Backend monolito</div>
+    <h1>SyncPass API</h1>
+    <p>Backend en Spring Boot que da servicio a la app Android SyncPass: identidad con Amazon Cognito, datos en PostgreSQL (Supabase) y despliegue en AWS EC2. Este documento explica para qué es la aplicación, qué se va a hacer y lleva la bitácora para saber siempre dónde quedamos.</p>
+    <div class="meta">
+      <span class="pill accent">Última actualización: 23-10-2026</span>
+      <span class="pill">Java 21 · Spring Boot 4.1.1</span>
+      <span class="pill">Datos 100 % ficticios</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Secciones">
+  <div class="wrap">
+    <a href="#donde">Dónde quedamos</a>
+    <a href="#proposito">Para qué es</a>
+    <a href="#arquitectura">Arquitectura</a>
+    <a href="#decisiones">Decisiones</a>
+    <a href="#plan">Plan de trabajo</a>
+    <a href="#bitacora">Bitácora</a>
+    <a href="#tu-parte">Lo que haces tú</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============================================================ -->
+  <section id="donde">
+    <div class="now">
+      <strong class="label">📍 Dónde quedamos</strong>
+      <p id="punto-actual"><b>Mi parte terminó (tareas 1 a 7).</b> El código, las pruebas (33/33 OK, también sobre PostgreSQL), el JAR y los scripts de <code>deploy/</code> están listos. <b>Te toca a ti:</b> comienza por el <b>Paso 0</b> de <a href="../pasos.md"><code>pasos.md</code></a> (instalar AWS CLI y pegar las credenciales del Learner Lab) y sigue en orden. Al volver, dime en qué paso quedaste.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="proposito">
+    <h2>¿Para qué es SyncPass?</h2>
+    <p>Las fundaciones e instituciones que hacen <b>proyectos de vinculación comunitaria</b> (talleres, operativos, actividades en juntas de vecinos) registran hoy la asistencia en <b>planillas de papel</b>, aplican encuestas por correo días después y transcriben todo a mano para los informes. SyncPass digitaliza ese flujo con una app Android pensada para trabajar <b>en terreno y sin señal</b>.</p>
+
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><h4>📷 Acreditación por QR</h4><p>El voluntario escanea la credencial <code>SYNCPASS:P-0007</code> del asistente: de ~45 s a menos de 5 s por persona.</p></div>
+      <div class="card"><h4>📶 Offline-first</h4><p>Todo se guarda primero en el teléfono (Room) y se sincroniza por lotes al volver la señal, sin duplicar registros.</p></div>
+      <div class="card"><h4>⭐ Encuesta inmediata</h4><p>Satisfacción y utilidad (1 a 5) al terminar el evento, para subir la tasa de respuesta del 15 % a más del 65 %.</p></div>
+      <div class="card"><h4>📊 Métricas y reportes</h4><p>Quórum en vivo, promedios y exportación CSV para el informe de cierre, sin digitar planillas.</p></div>
+    </div>
+
+    <h3>Perfiles de usuario</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rol</th><th>Qué hace en SyncPass</th></tr></thead>
+        <tbody>
+          <tr><td><b>COORDINADOR</b></td><td>Docente o coordinador(a) de proyecto. Revisa proyectos y eventos, controla el quórum y obtiene métricas, resúmenes y el CSV de asistencias.</td></tr>
+          <tr><td><b>VOLUNTARIO</b></td><td>Estudiante monitor. Escanea QR en la entrada, inscribe en sitio a quien llega sin inscripción y aplica la encuesta.</td></tr>
+          <tr><td><b>ADMINISTRADOR</b></td><td>Gestiona las cuentas de usuario (alta, consulta, activar/desactivar). Rol propio de este backend.</td></tr>
+          <tr><td><b>BENEFICIARIO</b></td><td>Asistente comunitario. No inicia sesión en el MVP; se identifica con su QR.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>¿Qué papel cumple este repositorio?</h3>
+    <p>La app Android (<code>projects-duoc\Movile\android</code>) ya existe y funciona contra un <b>backend de referencia</b> local con H2 y tokens propios. Este monolito es la versión <b>desplegable</b>: implementa el <b>mismo contrato de API</b> (<code>Movile/docs/contrato-api.md</code>) pero con identidad gestionada por Cognito, PostgreSQL en Supabase, migraciones Flyway y despliegue en EC2 con HTTPS.</p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="arquitectura">
+    <h2>Arquitectura</h2>
+    <div class="arch">
+      <div class="row">
+        <div class="node app"><h4>📱 App Android</h4><p>Kotlin · Compose · Room · WorkManager · Retrofit. Guarda localmente y sincroniza por lotes.</p></div>
+      </div>
+      <div class="arrow">HTTPS · <code>Authorization: Bearer &lt;access token&gt;</code></div>
+      <div class="row">
+        <div class="node"><h4>🌐 nginx en EC2</h4><p>Termina TLS (Let's Encrypt) y reenvía a la API en <code>127.0.0.1:8080</code>.</p></div>
+      </div>
+      <div class="arrow">proxy local</div>
+      <div class="row">
+        <div class="node"><h4>☕ SyncPass API</h4><p>Spring Boot 4 · Spring Security valida el JWT de Cognito · lógica de catálogo, sincronización, métricas y reportes.</p></div>
+      </div>
+      <div class="arrow">SDK AWS (rol IAM) · JDBC (TLS)</div>
+      <div class="row">
+        <div class="node"><h4>🔐 Amazon Cognito</h4><p>Usuarios, contraseñas y grupos (= roles). Emite los access tokens.</p></div>
+        <div class="node"><h4>🐘 Supabase PostgreSQL</h4><p>Perfiles, proyectos, eventos, participantes, asistencias y encuestas. Esquema por Flyway.</p></div>
+        <div class="node"><h4>🗝️ Parameter Store</h4><p>Secretos (BD y Cognito) leídos al arrancar; nunca en Git ni en disco.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="decisiones">
+    <h2>Decisiones tomadas</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decisión</th><th>Motivo</th></tr></thead>
+        <tbody>
+          <tr><td>El monolito implementa el contrato de la app Android (<code>/api/auth/login</code>, <code>/api/sync/*</code>, errores <code>{"error": "..."}</code>).</td><td>La app solo tiene que cambiar la URL base; no se reescribe la capa de red. Elegido el 22-10-2026.</td></tr>
+          <tr><td>Se migra el dominio completo desde <code>Movile/backend</code> (proyectos, eventos, participantes, inscripciones, asistencias, encuestas, métricas, reportes).</td><td>Sin dominio, el backend en EC2 no le serviría a la app más allá del login. Elegido el 22-10-2026.</td></tr>
+          <tr><td>Las contraseñas y la identidad viven en Cognito; PostgreSQL solo guarda el perfil, enlazado por el <code>sub</code>.</td><td>La API nunca almacena contraseñas. Viene del diseño original del monolito.</td></tr>
+          <tr><td>Esquema con Flyway y <code>ddl-auto=validate</code>.</td><td>Cambios de base revisables y reproducibles; Hibernate no modifica tablas.</td></tr>
+          <tr><td>Login por <b>username</b> (con email como alias) y el rol = grupo de Cognito de mayor privilegio.</td><td>La app envía <code>username</code>; Cognito es la fuente de verdad del rol y la base se sincroniza en cada login.</td></tr>
+          <tr><td>El token que recibe la app es el <b>access token de Cognito</b>, con duración de 12 h.</td><td>La app no implementa refresh; 12 h equivale a las sesiones del backend de referencia y evita reingresos en terreno.</td></tr>
+          <tr><td>Región <code>us-east-1</code> (N. Virginia) para Cognito, EC2 y Parameter Store; Supabase sigue en Ohio.</td><td>La cuenta es AWS Academy Learner Lab, que solo permite <code>us-east-1</code> y <code>us-west-2</code>. Virginia–Ohio agrega pocos milisegundos.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="plan">
+    <h2>Plan de trabajo</h2>
+    <p class="muted">“Claude” = lo hace el asistente en el código de este repositorio. “Tú” = requiere tu cuenta AWS/Supabase, tu navegador o tus credenciales.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Tarea</th><th>Quién</th><th>Estado</th></tr></thead>
+        <tbody id="plan-body">
+          <tr><td>1</td><td>Documentación, propósito de la app y bitácora (este archivo)</td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>2</td><td>Login compatible con la app (<code>POST /api/auth/login</code>) sobre Cognito, manejo de errores <code>{"error"}</code> y correcciones del análisis</td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>3</td><td>Migración Flyway V2 con el dominio + datos semilla ficticios</td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>4</td><td>Entidades, repositorios, servicios y controladores: catálogo, sincronización, métricas, reportes, usuarios</td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>5</td><td>Pruebas automáticas (H2) y build del JAR</td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>6</td><td>Carpeta <code>deploy/</code>: scripts de servidor, systemd, nginx, política IAM y <code>deploy.ps1</code></td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>7</td><td>Actualizar <code>README.md</code>, <code>.env.example</code> y <code>pasos.md</code></td><td><span class="who">Claude</span></td><td><span class="status s-hecho">Hecho</span></td></tr>
+          <tr><td>8</td><td>Instalar AWS CLI y crear Cognito con <code>cognito-setup.ps1</code> (pasos 0–1)</td><td><span class="who">Tú</span></td><td><span class="status s-curso">Siguiente</span></td></tr>
+          <tr><td>9</td><td>Arrancar en local contra Supabase y Cognito (paso 2 · DB-04/05)</td><td><span class="who">Tú</span></td><td><span class="status s-pend">Pendiente</span></td></tr>
+          <tr><td>10</td><td>Parameter Store, rol IAM, EC2, Elastic IP y dominio (pasos 3–5)</td><td><span class="who">Tú</span></td><td><span class="status s-pend">Pendiente</span></td></tr>
+          <tr><td>11</td><td><code>deploy.ps1 -Instalar</code> y HTTPS (pasos 6–8)</td><td><span class="who">Tú</span></td><td><span class="status s-pend">Pendiente</span></td></tr>
+          <tr><td>12</td><td>Apuntar la app Android a la URL de EC2 y probar de punta a punta (paso 9)</td><td><span class="who">Tú</span></td><td><span class="status s-pend">Pendiente</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="bitacora">
+    <h2>Bitácora</h2>
+    <p class="muted">Registro cronológico de lo realizado. La entrada amarilla es la más reciente.</p>
+    <ol class="log" id="log">
+      <li>
+        <div class="when">22-10-2026 · Análisis</div>
+        <h4>Revisión del monolito</h4>
+        <p>Se confirmó que el repositorio es un backend Spring Boot (no Android). Solo <code>GET /api/v1/me</code> estaba expuesto; servicios de login y usuarios sin controlador; se detectaron errores (NPE en login con desafío de Cognito, roles creados con cualquier texto, usuario huérfano en Cognito, falta de manejo de errores y de reglas por rol).</p>
+      </li>
+      <li>
+        <div class="when">22-10-2026 · Guía</div>
+        <h4>Guía de despliegue <code>pasos.md</code></h4>
+        <p>Paso a paso de Cognito, Parameter Store, IAM, EC2, systemd, nginx + HTTPS, verificación y rollback.</p>
+      </li>
+      <li>
+        <div class="when">22-10-2026 · Etapa 1</div>
+        <h4>Contexto de la app y documentación</h4>
+        <p>Se encontró la app Android y su backend de referencia en <code>projects-duoc\Movile</code>. Su contrato (<code>docs/contrato-api.md</code>) difiere del README del monolito; se decidió adoptar el de la app y migrar el dominio completo. Se creó este documento.</p>
+      </li>
+      <li>
+        <div class="when">22-10-2026 · Etapas 2 a 5</div>
+        <h4>Código: login, dominio, sincronización, reportes y pruebas</h4>
+        <ul>
+          <li><b>Migración <code>V2__dominio_syncpass.sql</code></b>: <code>usuario.username</code> (login de la app), email opcional y tablas <code>proyecto</code>, <code>evento</code>, <code>participante</code>, <code>inscripcion</code>, <code>asistencia</code>, <code>encuesta</code>. V1 no se modificó.</li>
+          <li><b>Login</b> <code>POST /api/auth/login</code> con <code>{username, password}</code> contra Cognito; responde <code>{token, usuario:{id, username, nombre, rol}}</code>. El rol sale del grupo de Cognito de mayor privilegio; el perfil local se crea en el primer login.</li>
+          <li><b>Correcciones del análisis</b>: sin NPE cuando Cognito pide un desafío (ahora 403 claro); roles validados contra los 4 permitidos (400); duplicados revisados <i>antes</i> de llamar a Cognito (409); si la base falla tras crear en Cognito se elimina el usuario (compensación); comentario de <code>setActivo</code> corregido; llamadas a Cognito fuera de la transacción de BD.</li>
+          <li><b>Errores</b> siempre <code>{"error": "..."}</code>: 400 validación/JSON, 401 sin token o token inválido, 403 rol insuficiente, 404, 409, 502 si Cognito no responde.</li>
+          <li><b>Dominio migrado</b> desde <code>Movile/backend</code>: catálogo, subida por lotes idempotente (uuid, marca más temprana, inscritos en sitio), encuestas, métricas, resumen y CSV. Datos semilla 100 % ficticios (3 proyectos, 6 eventos, 40 participantes), desactivables con <code>SYNCPASS_DATOS_SEMILLA=false</code>.</li>
+          <li><b>Seguridad por rol</b>: <code>/api/usuarios/**</code> solo ADMINISTRADOR; métricas y reportes COORDINADOR o ADMINISTRADOR; resto autenticado.</li>
+          <li><b>Pruebas</b>: 31 pruebas en H2 con Cognito simulado → <b>31 OK, 0 fallos</b> (<code>mvnw test</code> con el JDK 25 de Android Studio).</li>
+        </ul>
+      </li>
+      <li>
+        <div class="when">22-10-2026 · Etapa 6</div>
+        <h4>Scripts de despliegue en <code>deploy/</code></h4>
+        <ul>
+          <li><code>cognito-setup.ps1</code>: User Pool, App Client sin secreto (access token de 12 h), grupos y usuarios demo ficticios. Idempotente.</li>
+          <li><code>parameter-store.ps1</code>: los 6 secretos como <code>SecureString</code>; la contraseña se pide oculta.</li>
+          <li><code>iam-policy.json</code>: permisos mínimos (Cognito admin del pool + lectura de <code>/syncpass/prod</code>).</li>
+          <li><code>server/setup-server.sh</code>, <code>start.sh</code>, <code>syncpass.service</code>, <code>nginx-syncpass.conf</code>, <code>setup-https.sh</code>.</li>
+          <li><code>deploy.ps1</code>: compila con pruebas, sube, reinicia, verifica <code>/api/health</code>; <code>-Instalar</code> la primera vez y <code>-Rollback</code>.</li>
+          <li>Verificado: sintaxis de los 3 scripts bash y los 3 de PowerShell; <code>start.sh</code> simulado con un <code>aws</code> falso (contraseña con espacios, comillas y <code>$</code> llega intacta; si falta un parámetro se detiene). <code>.gitattributes</code> fuerza LF en <code>.sh</code>, <code>.service</code> y <code>.conf</code>.</li>
+        </ul>
+      </li>
+      <li>
+        <div class="when">22-10-2026 · Etapa 7</div>
+        <h4>Documentación actualizada y JAR generado</h4>
+        <p><code>mvnw clean package</code> → BUILD SUCCESS, <code>target/syncpass-api-0.0.1-SNAPSHOT.jar</code> (71 MB). Se reescribieron <code>README.md</code> (tickets al día), <code>.env.example</code> (región us-east-2, <code>COGNITO_USER_POOL_ID</code>, <code>SYNCPASS_DATOS_SEMILLA</code>) y <code>pasos.md</code> (ahora usa los scripts). <b>Fin de la parte automatizable; sigue la parte con tus credenciales.</b></p>
+      </li>
+      <li>
+        <div class="when">23-10-2026 · Revisión</div>
+        <h4>Revisión de errores y prueba contra PostgreSQL real</h4>
+        <ul>
+          <li><b>PostgreSQL 17 en Docker</b> (como Supabase): Flyway aplica V1 y V2, <code>ddl-auto=validate</code> pasa y la siembra funciona. Las pruebas también se corrieron sobre PostgreSQL, no solo H2.</li>
+          <li><b>Login bloqueado al recrear un usuario en Cognito</b>: con el mismo username pero otro <code>sub</code> (por ejemplo, al volver a crear el User Pool) el login respondía 409 para siempre. Ahora se vuelve a vincular el perfil local y se conservan su id y su estado <code>activo</code>.</li>
+          <li><b>Configuración de Cognito incompleta</b>: sin <code>COGNITO_CLIENT_ID</code>/<code>COGNITO_USER_POOL_ID</code>, o con un <code>COGNITO_ISSUER</code> de otro pool, la API arrancaba igual y rechazaba todo token como "expirado". Ahora no arranca y el log dice qué falta.</li>
+          <li><b>Subida de asistencias</b>: <code>distanciaMetros</code> infinita (<code>1e400</code>) se aceptaba; ahora se rechaza ese registro con su motivo.</li>
+          <li><b>CSV</b>: los números ya no salen en notación científica (<code>1.0E-4</code> → <code>0.00010</code>).</li>
+          <li>Se quitó <code>hibernate.dialect</code> de <code>application.properties</code>: Hibernate lo detecta solo y el aviso HHH90000025 desaparece (0 avisos al arrancar).</li>
+          <li><b>Pruebas</b>: 2 nuevas que reproducen los errores → <b>33 OK, 0 fallos</b> en H2 y en PostgreSQL 17.</li>
+        </ul>
+      </li>
+      <li class="current">
+        <div class="when">23-10-2026 · Ajuste</div>
+        <h4>Adaptación a AWS Academy Learner Lab</h4>
+        <p>La cuenta AWS es de AWS Academy. La región de AWS pasa de <code>us-east-2</code> a <code>us-east-1</code> en <code>application.properties</code>, <code>.env.example</code>, los scripts de <code>deploy/</code> e <code>iam-policy.json</code>; Supabase no cambia (Ohio). <code>pasos.md</code> ahora explica cómo pegar las credenciales del lab (con <code>aws_session_token</code>, en cada sesión), elegir <code>LabInstanceProfile</code> al lanzar la EC2 y qué hacer con <code>ExpiredToken</code>.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="tu-parte">
+    <h2>Lo que haces tú</h2>
+    <p>Las tareas 8 a 12 requieren tu cuenta y tus credenciales. El detalle, comando por comando, está en <a href="../pasos.md"><code>pasos.md</code></a>. Resumen del orden:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Paso</th><th>Qué haces</th><th>Comando o lugar</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Instalar y configurar AWS CLI v2</td><td><code>winget install Amazon.AWSCLI</code> · <code>aws configure</code></td></tr>
+          <tr><td>1</td><td>Crear Cognito y usuarios demo</td><td><code>.\deploy\cognito-setup.ps1 -PasswordAdmin '...'</code></td></tr>
+          <tr><td>2</td><td>Probar en local contra Supabase y Cognito</td><td>IntelliJ (variables de entorno) + login con <code>coordinador / coord123</code></td></tr>
+          <tr><td>3</td><td>Guardar secretos</td><td><code>.\deploy\parameter-store.ps1 ...</code></td></tr>
+          <tr><td>4</td><td>Lanzar EC2, Elastic IP y rol IAM</td><td>Consola AWS + <code>deploy/iam-policy.json</code></td></tr>
+          <tr><td>5</td><td>Subdominio apuntando a la Elastic IP</td><td>duckdns.org</td></tr>
+          <tr><td>6</td><td>Instalar servidor y desplegar</td><td><code>.\deploy\deploy.ps1 -Servidor IP -Llave .pem -Instalar -Dominio ...</code></td></tr>
+          <tr><td>7</td><td>HTTPS</td><td><code>sudo /usr/local/sbin/syncpass-setup-https DOMINIO correo</code></td></tr>
+          <tr><td>8</td><td>Verificar y cerrar Supabase a la Elastic IP</td><td>PowerShell + Supabase → Network Restrictions</td></tr>
+          <tr><td>9</td><td>Conectar la app Android</td><td><b>Configurar servidor</b> → <code>https://DOMINIO/api/</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Pendientes y riesgos conocidos</h3>
+    <ul>
+      <li><b>No probado aún con servicios reales:</b> las migraciones V1+V2 se validaron en H2 (modo PostgreSQL), no en Supabase; el login se probó con Cognito simulado. El paso 2 lo confirma.</li>
+      <li><b>Desactivar usuarios:</b> el token vigente sigue válido hasta que expira (12 h); el siguiente login queda bloqueado.</li>
+      <li><b>Política de contraseñas relajada</b> en el pool de desarrollo para aceptar <code>coord123</code>/<code>volun123</code> del contrato. No usar en producción.</li>
+      <li>La app muestra a un <b>ADMINISTRADOR</b> como voluntario (su enum solo conoce COORDINADOR y VOLUNTARIO); la administración de usuarios se hace por API.</li>
+      <li>El paquete Java sigue llamándose <code>com.backendapp.demo</code> (nombre de plantilla); renombrarlo es opcional.</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  SyncPass · MVP académico DSY1105 · Todos los datos de prueba son ficticios.
+</footer>
+
+</body>
+</html>
