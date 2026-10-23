@@ -14,7 +14,7 @@ Backend monolitico modular para SyncPass: la app Android que reemplaza las plani
 | Identidad | Amazon Cognito User Pool (usuarios, contrasenas y grupos = roles) |
 | Persistencia | PostgreSQL de Supabase mediante JDBC/JPA |
 | Migraciones | Flyway (V1 usuarios/roles, V2 dominio); Hibernate `ddl-auto=validate` |
-| Aplicacion movil | Kotlin + Compose en `projects-duoc/Movile/android`; solo cambia la URL base |
+| Aplicacion movil | Kotlin + Compose en `projects-duoc/Movile/app` (estructura core/ + feature/ con Hilt); solo cambia la URL base |
 | Despliegue | EC2 + nginx + HTTPS; scripts listos en `deploy/` |
 
 Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los datos propios del sistema. El `sub` de Cognito vincula ambos. La API no almacena contrasenas.
@@ -83,10 +83,10 @@ Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente; `🛠️` codigo
 
 ### Fase 4 — Aplicacion movil
 
-- [x] ✅ **MOBILE-01 — Identificar el proyecto movil.** Android nativo (Kotlin, Compose, Room, Retrofit) en `projects-duoc/Movile/android`.
+- [x] ✅ **MOBILE-01 — Identificar el proyecto movil.** Android nativo (Kotlin, Compose, Room, Retrofit) en `projects-duoc/Movile/app` (estructura core/ + feature/ con Hilt).
 - [x] ✅ **MOBILE-02 — Flujo de autenticacion.** La app recibe el access token de Cognito desde `POST /api/auth/login`; no habla con Cognito directamente.
 - [ ] ❌ **MOBILE-03 — Configurar ambientes.** En la app, *Configurar servidor* → `https://<dominio>/api/`.
-- [ ] ❌ **MOBILE-04 — Sesion segura.** Revisar almacenamiento del token y poner `cleartextTrafficPermitted="false"` al usar HTTPS.
+- [x] ✅ **MOBILE-04 — Sesion segura.** Token en DataStore privado (sin backup ni logs); release solo HTTPS; 401 marca la sesion como expirada sin perder registros.
 - [ ] ❌ **MOBILE-05/06 — Validar extremo a extremo** con usuarios demo ficticios.
 
 ### Fase 5 — Despliegue

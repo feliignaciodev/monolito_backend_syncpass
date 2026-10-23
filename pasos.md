@@ -200,13 +200,13 @@ curl.exe -m 5 http://<ELASTIC_IP>:8080/api/health                               
 
 ## Paso 9 — Conectar la app Android (MOBILE-03 a MOBILE-06)
 
-- [ ] En la app, pantalla **Configurar servidor**: `https://<DOMINIO>/api/`
+- [ ] En la app, pantalla **Configurar servidor**: `<DOMINIO>` (la app agrega `https://`)
 - [ ] Inicia sesión con `voluntario / volun123`: descarga 3 proyectos y 6 eventos.
-- [ ] Registra asistencias (QR de `Movile/prototipo/credenciales-qr.html`), una encuesta y pulsa **Sincronizar ahora**.
+- [ ] Registra asistencias (escaneando un QR `SYNCPASS:P-0007` o con **Ingresar código**), una encuesta y pulsa **Sincronizar ahora**.
 - [ ] Con `coordinador / coord123`, revisa métricas y resumen.
-- [ ] Antes de entregar, en `Movile/android/app/src/main/res/xml/network_security_config.xml` deja `cleartextTrafficPermitted="false"`, porque la API ya usa HTTPS.
+- [ ] Genera el APK *release*: solo permite HTTPS (`usesCleartextTraffic` por tipo de build en `Movile/app/build.gradle.kts`).
 
-> Para desarrollo local sin EC2: emulador → `http://10.0.2.2:8080/api/`; teléfono en la misma Wi-Fi → `http://<IP-del-PC>:8080/api/`.
+> Para desarrollo local sin EC2: emulador → `10.0.2.2:8080`; teléfono en la misma Wi-Fi → `<IP-del-PC>:8080`.
 
 ---
 
