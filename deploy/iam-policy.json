@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CognitoAdministracionDeUsuarios",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminSetUserPassword",
+        "cognito-idp:AdminAddUserToGroup",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminEnableUser",
+        "cognito-idp:AdminDisableUser",
+        "cognito-idp:AdminDeleteUser"
+      ],
+      "Resource": "arn:aws:cognito-idp:us-east-1:<ACCOUNT_ID>:userpool/<POOL>"
+    },
+    {
+      "Sid": "LeerSecretosDeSyncPass",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParametersByPath"],
+      "Resource": [
+        "arn:aws:ssm:us-east-1:<ACCOUNT_ID>:parameter/syncpass/prod",
+        "arn:aws:ssm:us-east-1:<ACCOUNT_ID>:parameter/syncpass/prod/*"
+      ]
+    }
+  ]
+}
