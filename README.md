@@ -37,12 +37,15 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 |---|---|---|
 | GET | `/api/health`, `/actuator/health` | publico |
 | POST | `/api/auth/login` | publico |
+| POST | `/api/auth/registro` (`{nombre, email, password}` → 201), `/api/auth/registro/confirmar` (`{email, codigo}` → 204), `/api/auth/registro/reenviar-codigo` (`{email}` → 204) | publico |
 | GET | `/api/me` | autenticado |
 | GET | `/api/sync/catalogo` | autenticado |
 | POST | `/api/sync/asistencias`, `/api/sync/encuestas` | autenticado (lotes de max. 500) |
 | GET | `/api/eventos/{id}/metricas` | COORDINADOR, ADMINISTRADOR |
 | GET | `/api/reportes/resumen`, `/api/reportes/asistencias.csv` | COORDINADOR, ADMINISTRADOR |
 | GET/POST | `/api/usuarios`, `GET /api/usuarios/{id}`, `PATCH /api/usuarios/{id}/activo` | ADMINISTRADOR |
+
+**Auto-registro (web SyncPass).** `POST /api/auth/registro` hace `SignUp` en Cognito, agrega el usuario al grupo `BENEFICIARIO` y guarda el perfil local; el rol nunca viene del cliente. Si falla la asignacion del grupo o el guardado en la base, la cuenta se elimina de Cognito. La cuenta queda sin confirmar hasta que el usuario envia el codigo que le llega al email. Requiere un User Pool que use el **email como nombre de usuario**, con el auto-registro habilitado y los 4 grupos creados.
 
 ### 📍 Estado comprobado
 

@@ -27,12 +27,21 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminGetUse
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminSetUserPasswordRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthFlowType;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.CodeMismatchException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.ConfirmSignUpRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.ExpiredCodeException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InitiateAuthRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InitiateAuthResponse;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidParameterException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidPasswordException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.LimitExceededException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.MessageActionType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.NotAuthorizedException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.PasswordResetRequiredException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.ResendConfirmationCodeRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.SignUpRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.TooManyFailedAttemptsException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.TooManyRequestsException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotConfirmedException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
@@ -45,6 +54,8 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExi
 public class CognitoService {
 
     public static final String CREDENCIALES_INVALIDAS = "Usuario o contraseña incorrectos";
+    public static final String CUENTA_EXISTENTE = "Ya existe una cuenta con ese email";
+    public static final String CUENTA_YA_CONFIRMADA = "La cuenta ya está confirmada; inicie sesión";
 
     private static final Logger log = LoggerFactory.getLogger(CognitoService.class);
 
@@ -179,6 +190,95 @@ public class CognitoService {
         }
     }
 
+    /**
+     * Auto-registro con SignUp: Cognito deja la cuenta sin confirmar y envia un codigo al email. Luego agrega
+     * el usuario al grupo del rol; si eso falla, lo elimina para no dejarlo a medias. Devuelve el {@code sub}.
+     * El pool debe usar el email como nombre de usuario y tener habilitado el auto-registro.
+     */
+    public String registrar(String email, String nombre, String rol, String password) {
+        String sub;
+        try {
+            sub = cognito.signUp(SignUpRequest.builder()
+                    .clientId(properties.clientId())
+                    .username(email)
+                    .password(password)
+                    .userAttributes(
+                            AttributeType.builder().name("email").value(email).build(),
+                            AttributeType.builder().name("name").value(nombre).build())
+                    .build())
+                    .userSub();
+        } catch (UsernameExistsException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, CUENTA_EXISTENTE);
+        } catch (InvalidPasswordException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La contraseña no cumple la política del User Pool de Cognito");
+        } catch (InvalidParameterException e) {
+            log.warn("Cognito rechazo los datos del registro: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Revise los datos ingresados");
+        } catch (NotAuthorizedException e) {
+            // Cognito rechaza SignUp cuando el pool solo permite que el administrador cree usuarios
+            log.error("Cognito rechazo SignUp; revisar que el User Pool tenga habilitado el auto-registro", e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "El registro de cuentas no está habilitado");
+        } catch (LimitExceededException | TooManyRequestsException e) {
+            throw demasiadosIntentos();
+        } catch (SdkException e) {
+            throw servicioNoDisponible("registrar usuario", e);
+        }
+
+        try {
+            cognito.adminAddUserToGroup(AdminAddUserToGroupRequest.builder()
+                    .userPoolId(properties.userPoolId())
+                    .username(email)
+                    .groupName(rol)
+                    .build());
+            return sub;
+        } catch (SdkException e) {
+            deleteUser(email);
+            throw servicioNoDisponible("asignar el rol al usuario registrado", e);
+        }
+    }
+
+    public void confirmarRegistro(String email, String codigo) {
+        try {
+            cognito.confirmSignUp(ConfirmSignUpRequest.builder()
+                    .clientId(properties.clientId())
+                    .username(email)
+                    .confirmationCode(codigo)
+                    .build());
+        } catch (CodeMismatchException | UserNotFoundException e) {
+            // Mismo mensaje en ambos casos para no revelar si el email tiene cuenta
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El código no es correcto");
+        } catch (ExpiredCodeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El código expiró; solicite uno nuevo");
+        } catch (NotAuthorizedException e) {
+            // Cognito responde NotAuthorized cuando la cuenta ya estaba confirmada
+            throw new ResponseStatusException(HttpStatus.CONFLICT, CUENTA_YA_CONFIRMADA);
+        } catch (LimitExceededException | TooManyRequestsException | TooManyFailedAttemptsException e) {
+            throw demasiadosIntentos();
+        } catch (SdkException e) {
+            throw servicioNoDisponible("confirmar registro", e);
+        }
+    }
+
+    public void reenviarCodigo(String email) {
+        try {
+            cognito.resendConfirmationCode(ResendConfirmationCodeRequest.builder()
+                    .clientId(properties.clientId())
+                    .username(email)
+                    .build());
+        } catch (UserNotFoundException e) {
+            // Se responde como si se hubiera enviado para no revelar si el email tiene cuenta
+            log.info("Reenvio de codigo pedido para un email sin cuenta");
+        } catch (InvalidParameterException e) {
+            // Cognito usa InvalidParameter cuando la cuenta ya esta confirmada
+            throw new ResponseStatusException(HttpStatus.CONFLICT, CUENTA_YA_CONFIRMADA);
+        } catch (LimitExceededException | TooManyRequestsException e) {
+            throw demasiadosIntentos();
+        } catch (SdkException e) {
+            throw servicioNoDisponible("reenviar codigo", e);
+        }
+    }
+
     /** Elimina el usuario de Cognito (compensacion). Los errores solo se registran. */
     public void deleteUser(String username) {
         try {
@@ -216,6 +316,11 @@ public class CognitoService {
                 .map(AttributeType::value)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static ResponseStatusException demasiadosIntentos() {
+        return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                "Demasiados intentos; espere unos minutos e intente de nuevo");
     }
 
     private static ResponseStatusException servicioNoDisponible(String operacion, SdkException e) {
