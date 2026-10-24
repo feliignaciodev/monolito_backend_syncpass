@@ -45,7 +45,8 @@ public class SecurityConfiguration {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/actuator/health", "/api/health").permitAll()
-						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/registro",
+								"/api/auth/registro/confirmar", "/api/auth/registro/reenviar-codigo").permitAll()
 						.requestMatchers("/api/usuarios/**").hasRole(Rol.ADMINISTRADOR)
 						.requestMatchers("/api/eventos/*/metricas", "/api/reportes/**")
 								.hasAnyRole(Rol.COORDINADOR, Rol.ADMINISTRADOR)

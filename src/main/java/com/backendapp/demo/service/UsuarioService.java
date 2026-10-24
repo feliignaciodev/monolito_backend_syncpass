@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backendapp.demo.domain.Rol;
 import com.backendapp.demo.domain.Usuario;
 import com.backendapp.demo.dto.LoginResponse;
+import com.backendapp.demo.dto.RegistroRequest;
 import com.backendapp.demo.dto.UsuarioCreateRequest;
 import com.backendapp.demo.dto.UsuarioDto;
 import com.backendapp.demo.dto.UsuarioResponse;
@@ -22,6 +23,9 @@ import com.backendapp.demo.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
+
+    /** Rol de quien se registra por su cuenta; los demas los asigna un administrador. */
+    static final String ROL_REGISTRO = Rol.BENEFICIARIO;
 
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
@@ -124,6 +128,50 @@ public class UsuarioService {
             throw e;
         }
         return toResponse(usuario);
+    }
+
+    /**
+     * Auto-registro publico: crea la cuenta en Cognito y el perfil local con el rol basico. El rol nunca
+     * viene del cliente. Igual que en el alta por administrador, si falla la base se elimina de Cognito.
+     */
+    @Transactional
+    public UsuarioResponse registrar(RegistroRequest request) {
+        String email = normalizarEmail(request.email());
+        String nombre = request.nombre().trim();
+        Rol rol = buscarRol(ROL_REGISTRO);
+
+        if (usuarioRepository.existsByEmail(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, CognitoService.CUENTA_EXISTENTE);
+        }
+
+        String sub = cognitoService.registrar(email, nombre, rol.getNombre(), request.password());
+
+        Usuario usuario = new Usuario();
+        usuario.setCognitoSub(sub);
+        // En un pool que usa el email como nombre de usuario, el username de Cognito es el sub
+        usuario.setUsername(sub);
+        usuario.setNombre(nombre);
+        usuario.setEmail(email);
+        usuario.setRol(rol);
+        usuario.setActivo(Boolean.TRUE);
+        try {
+            usuarioRepository.saveAndFlush(usuario);
+        } catch (RuntimeException e) {
+            cognitoService.deleteUser(email);
+            if (e instanceof DataIntegrityViolationException) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, CognitoService.CUENTA_EXISTENTE);
+            }
+            throw e;
+        }
+        return toResponse(usuario);
+    }
+
+    public void confirmarRegistro(String email, String codigo) {
+        cognitoService.confirmarRegistro(normalizarEmail(email), codigo.trim());
+    }
+
+    public void reenviarCodigo(String email) {
+        cognitoService.reenviarCodigo(normalizarEmail(email));
     }
 
     @Transactional
