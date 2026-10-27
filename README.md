@@ -49,10 +49,12 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 
 ### 📍 Estado comprobado
 
-- ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio) y la aplicacion llego a conectarse al Session pooler.
-- ✅ Flyway V1 y V2 se ejecutan en H2 (modo PostgreSQL) y en PostgreSQL 17 local (Docker); Hibernate valida el esquema y las 33 pruebas pasan en ambos.
+- ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio); la aplicacion conecta al Session pooler.
+- ✅ Flyway aplico V1 y V2 en Supabase; el arranque posterior valido el esquema en version 2 y Hibernate inicio correctamente.
+- ⚠️ Cognito esta configurado localmente con el pool `us-east-1_AwWWrn8lb` y su App Client, pero el endpoint publico JWKS devolvio HTTP 404. Verificar que el pool exista en `us-east-1` antes de probar login o desplegar.
 - ✅ `mvnw clean package`: 33 pruebas OK y JAR generado.
-- ❌ Falta comprobar V1 + V2 en Supabase real, Cognito real, EC2 y la app contra el servidor publicado.
+- ✅ La API local responde `UP` en `http://localhost:8080/api/health`.
+- ❌ EC2/HTTPS y el login real de Cognito todavia no estan verificados. No hay un servidor publicado aun.
 
 ## 🗺️ Ruta de trabajo / tickets
 
@@ -63,14 +65,14 @@ Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente; `🛠️` codigo
 - [x] ✅ **DB-01 — Crear Supabase de desarrollo.** Proyecto creado en Ohio.
 - [x] ✅ **DB-02 — Conectar Spring a Supabase.** El log confirmo `HikariPool - Start completed` y PostgreSQL 17.11.
 - [x] ✅ **DB-03 — Crear migraciones.** V1 (`rol`, `usuario`, 4 roles) y V2 (`username` + dominio).
-- [ ] ❌ **DB-04 — Aplicar V1 y V2 en Supabase.** Arrancar en IntelliJ y confirmar en logs que Flyway aplica las versiones 1 y 2 y Spring termina con `Started SyncPassApiApplication`.
-- [ ] ❌ **DB-05 — Inspeccionar el esquema remoto.** Tablas `rol`, `usuario`, `proyecto`, `evento`, `participante`, `inscripcion`, `asistencia`, `encuesta`, `flyway_schema_history`.
+- [x] ✅ **DB-04 — Aplicar V1 y V2 en Supabase.** Flyway confirmo ambas migraciones aplicadas y el esquema en version 2.
+- [x] ✅ **DB-05 — Validar el esquema remoto.** Hibernate valida las entidades y la aplicacion arranca contra Supabase.
 - [ ] ❌ **DB-06 — Proteger credenciales.** La contrasena real solo en IntelliJ local y en Parameter Store.
 
 ### Fase 2 — Cognito y seguridad del backend
 
 - [ ] 🛠️ **AUTH-01 — Crear Cognito de desarrollo.** `deploy/cognito-setup.ps1` crea pool, App Client sin secreto (tokens de 12 h), grupos y usuarios demo.
-- [ ] ❌ **AUTH-02 — Configurar variables Cognito.** `AWS_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_ISSUER`.
+- [x] ✅ **AUTH-02 — Configurar variables Cognito localmente.** Pool y App Client informados y guardados en la configuracion local de IntelliJ; confirmar que el pool existe, porque su endpoint JWKS respondio HTTP 404.
 - [ ] 🛠️ **AUTH-03 — Probar JWT real.** Cubierto en pruebas con tokens simulados (401/403); falta probar con Cognito real.
 - [x] ✅ **AUTH-04 — Login HTTP.** `POST /api/auth/login` publico, validado, sin registrar contrasenas ni tokens.
 - [x] ✅ **AUTH-05 — Perfil y autorizacion.** Perfil local creado en el primer login; rol = grupo de mayor privilegio; sin grupo → 403; desactivado → 403.
@@ -81,7 +83,7 @@ Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente; `🛠️` codigo
 - [x] ✅ **API-01 — Contrato funcional.** Se adopta el contrato de la app Android (`Movile/docs/contrato-api.md`).
 - [x] ✅ **API-02 — Proyectos y eventos.** Migracion, modelo, repositorios, servicios, controllers, DTOs y pruebas.
 - [x] ✅ **API-03 — Participantes, asistencias, encuestas y reportes.** Mismo flujo y restricciones por rol.
-- [ ] 🛠️ **API-04 — Integracion y regresion.** Pruebas completas OK contra PostgreSQL 17 local; falta Supabase real y Cognito de desarrollo.
+- [ ] 🛠️ **API-04 — Integracion y regresion.** Pruebas y conexion real a Supabase OK; falta validar login real con Cognito.
 - [ ] ❌ **API-05 — Documentar contrato.** El contrato existe en Markdown; queda opcional publicar OpenAPI/Swagger.
 
 ### Fase 4 — Aplicacion movil
@@ -123,6 +125,39 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```
 
 Las pruebas usan H2 y Cognito simulado. No prueban conectividad real con Cognito ni con Supabase.
+
+## 🚀 Publicar y probar desde otros dispositivos (EC2)
+
+La ejecucion local solo es accesible desde tu PC o la misma red Wi-Fi; no es una URL publica. Para dejar la API disponible en Internet usa EC2 con HTTPS. **Antes de desplegar, confirma en Cognito que el User Pool indicado exista en `us-east-1`**: al validar `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AwWWrn8lb/.well-known/jwks.json` se recibio HTTP 404, por lo que el login todavia no esta listo para uso remoto.
+
+1. Inicia AWS Academy Learner Lab y configura sus credenciales temporales localmente siguiendo [pasos.md, secciones 0 y 4](pasos.md). No las pegues en GitHub ni en el chat.
+2. En `us-east-1`, crea una instancia Amazon Linux 2023, asigna el perfil IAM `LabInstanceProfile`, crea/usa una llave SSH y asocia una Elastic IP. En el Security Group permite SSH solo desde tu IP y HTTP/HTTPS (80/443); **no abras 8080**.
+3. Configura un dominio que apunte a la Elastic IP. Guarda las variables de conexion en Parameter Store. El script usa el prefijo `/syncpass/prod/`; confirma que el entorno y los datos sean los correctos antes de cargar secretos (la clave Supabase se pide de forma oculta):
+
+   ```powershell
+   .\deploy\parameter-store.ps1 `
+     -DbUrl 'jdbc:postgresql://<HOST_POOLER>:5432/postgres?sslmode=require' `
+     -DbUser 'postgres.<PROJECT_REF>' `
+     -CognitoUserPoolId '<POOL>' -CognitoClientId '<CLIENT>'
+   ```
+
+4. Desde la raiz del repositorio instala y publica la API:
+
+   ```powershell
+   .\deploy\deploy.ps1 -Servidor '<ELASTIC_IP>' -Llave '<RUTA_A_LA_LLAVE.pem>' `
+     -Instalar -Dominio '<DOMINIO>'
+   ```
+
+5. Habilita HTTPS con el dominio y un correo valido:
+
+   ```powershell
+   ssh -i '<RUTA_A_LA_LLAVE.pem>' ec2-user@'<ELASTIC_IP>' `
+     'sudo /usr/local/sbin/syncpass-setup-https <DOMINIO> <CORREO>'
+   ```
+
+   Verifica `https://<DOMINIO>/api/health` y configura esa base URL en la app Android. Los detalles de Learner Lab, permisos IAM, red y solucion de problemas estan en [`pasos.md`](pasos.md).
+
+La publicacion EC2 requiere recursos y credenciales AWS de tu cuenta; no se realiza automaticamente al subir el codigo a GitHub.
 
 ## 🛡️ Precauciones importantes
 
