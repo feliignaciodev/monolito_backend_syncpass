@@ -1,11 +1,10 @@
 #!/bin/bash
-# Prepara una instancia Amazon Linux 2023 para SyncPass API (pasos 5, 7 y 8.2 de pasos.md).
+# Prepara una instancia Amazon Linux 2023 para SyncPass API (paso 5 de pasos.md).
 # Se puede ejecutar de nuevo sin romper nada.
-# Uso: sudo bash setup-server.sh <dominio> [region]
+# Uso: sudo bash setup-server.sh [region]
 set -euo pipefail
 
-DOMINIO="${1:?Uso: sudo bash setup-server.sh <dominio> [region]}"
-REGION="${2:-us-east-1}"
+REGION="${1:-us-east-1}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -39,14 +38,18 @@ install -m 644 "$DIR/syncpass.service" /etc/systemd/system/syncpass.service
 systemctl daemon-reload
 systemctl enable syncpass
 
-# /tmp se borra al reiniciar: el script de HTTPS queda instalado de forma permanente
-install -m 755 "$DIR/setup-https.sh" /usr/local/sbin/syncpass-setup-https
-
-echo "==> nginx para ${DOMINIO}"
-if [ ! -f /etc/nginx/conf.d/syncpass.conf ] || ! grep -q "listen 443" /etc/nginx/conf.d/syncpass.conf; then
-  # Solo se reescribe mientras no exista HTTPS, para no borrar lo que agrega certbot
-  sed "s/__DOMINIO__/${DOMINIO}/g" "$DIR/nginx-syncpass.conf" > /etc/nginx/conf.d/syncpass.conf
+echo "==> nginx: solo acepta peticiones que traen el secreto de API Gateway"
+# Hexadecimal (lo genera parameter-store.ps1), seguro para sed y para nginx
+SECRETO=$(aws ssm get-parameter --name /syncpass/gateway/ORIGIN_SECRET --with-decryption \
+  --region "$REGION" --query Parameter.Value --output text)
+if ! [[ "$SECRETO" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "Falta o es invalido /syncpass/gateway/ORIGIN_SECRET; ejecute deploy/parameter-store.ps1" >&2
+  exit 1
 fi
+install -m 600 /dev/null /etc/nginx/conf.d/syncpass.conf
+sed "s/__ORIGIN_SECRET__/${SECRETO}/g" "$DIR/nginx-syncpass.conf" > /etc/nginx/conf.d/syncpass.conf
+# El server de ejemplo de nginx.conf no puede quedarse con el default_server
+sed -i -E 's/listen(\s+)(\[::\]:)?80(\s+)default_server;/listen\1\280;/' /etc/nginx/nginx.conf
 nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
@@ -56,7 +59,7 @@ cantidad=$(aws ssm get-parameters-by-path --path /syncpass/prod --region "$REGIO
   --query 'length(Parameters)' --output text)
 echo "Parametros encontrados en /syncpass/prod: ${cantidad} (se esperan 6)"
 if [ "${cantidad}" -lt 6 ]; then
-  echo "AVISO: faltan parametros; ver paso 2 de pasos.md o deploy/parameter-store.ps1" >&2
+  echo "AVISO: faltan parametros; ver paso 3 de pasos.md o deploy/parameter-store.ps1" >&2
 fi
 
 if [ -f /opt/syncpass/app.jar ]; then

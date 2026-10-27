@@ -23,6 +23,12 @@
         "arn:aws:ssm:us-east-1:<ACCOUNT_ID>:parameter/syncpass/prod",
         "arn:aws:ssm:us-east-1:<ACCOUNT_ID>:parameter/syncpass/prod/*"
       ]
+    },
+    {
+      "Sid": "LeerSecretoDeOrigenDeApiGateway",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:us-east-1:<ACCOUNT_ID>:parameter/syncpass/gateway/ORIGIN_SECRET"
     }
   ]
 }

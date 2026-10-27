@@ -4,13 +4,13 @@
   anterior como app-previous.jar para poder volver atras.
 
 .DESCRIPTION
-  Primera vez: agregue -Instalar -Dominio <dominio> para preparar el servidor (Java, nginx,
-  usuario de servicio, swap y systemd) con deploy/server/setup-server.sh.
+  Primera vez: agregue -Instalar para preparar el servidor (Java, nginx, usuario de servicio,
+  swap y systemd) con deploy/server/setup-server.sh.
   Despues: ejecute sin -Instalar para cada version nueva.
   -Rollback vuelve a la version anterior sin compilar.
 
 .EXAMPLE
-  .\deploy\deploy.ps1 -Servidor 3.140.10.20 -Llave C:\claves\syncpass-key.pem -Instalar -Dominio syncpass-dev.duckdns.org
+  .\deploy\deploy.ps1 -Servidor 3.140.10.20 -Llave C:\claves\syncpass-key.pem -Instalar
 .EXAMPLE
   .\deploy\deploy.ps1 -Servidor 3.140.10.20 -Llave C:\claves\syncpass-key.pem
 .EXAMPLE
@@ -21,7 +21,6 @@ param(
     [Parameter(Mandatory = $true)] [string] $Llave,
     [string] $Usuario = "ec2-user",
     [switch] $Instalar,
-    [string] $Dominio,
     [string] $Region = "us-east-1",
     [switch] $SinPruebas,
     [switch] $Rollback
@@ -43,7 +42,6 @@ function Wait-Api {
 }
 
 if (-not (Test-Path $Llave)) { throw "No existe la llave $Llave" }
-if ($Instalar -and -not $Dominio) { throw "-Instalar requiere -Dominio" }
 
 if ($Rollback) {
     Write-Host "==> Volviendo a la version anterior"
@@ -85,7 +83,7 @@ if ($Instalar) {
     & scp @opcionesSsh @archivos "${destino}:/tmp/syncpass-setup/"
     if ($LASTEXITCODE -ne 0) { throw "No se pudieron subir los scripts del servidor" }
     # Quita CRLF por si Git los convirtio en Windows
-    Invoke-Remoto ('sed -i ''s/\r$//'' /tmp/syncpass-setup/* && sudo bash /tmp/syncpass-setup/setup-server.sh ' + $Dominio + ' ' + $Region)
+    Invoke-Remoto ('sed -i ''s/\r$//'' /tmp/syncpass-setup/* && sudo bash /tmp/syncpass-setup/setup-server.sh ' + $Region)
 }
 
 # 4) Subir el JAR y reiniciar, guardando la version anterior
@@ -98,6 +96,6 @@ Invoke-Remoto 'set -e; if [ -f /opt/syncpass/app.jar ]; then sudo cp /opt/syncpa
 Wait-Api
 Write-Host "==> Despliegue OK."
 if ($Instalar) {
-    Write-Host "    Siguiente paso: HTTPS. Con el dominio ya apuntando a la Elastic IP ejecute:"
-    Write-Host "    ssh -i $Llave $destino 'sudo /usr/local/sbin/syncpass-setup-https $Dominio su-correo@ejemplo.cl'"
+    Write-Host "    Siguiente paso: exponer la API con HTTPS por API Gateway:"
+    Write-Host "    .\deploy\apigateway-setup.ps1 -Servidor $Servidor"
 }
