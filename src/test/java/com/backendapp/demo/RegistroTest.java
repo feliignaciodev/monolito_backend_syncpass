@@ -21,13 +21,13 @@ class RegistroTest extends PruebaBase {
 
 	@Test
 	void registroCreaLaCuentaEnCognitoYElPerfilLocalComoBeneficiario() throws Exception {
-		when(cognitoService.registrar("ana@syncpass.test", "Ana Muñoz", "BENEFICIARIO", "Clave#2026"))
+		when(cognitoService.registrar("ana@syncpass.test", "Ana Muñoz", "+56912345678", "BENEFICIARIO", "Clave#2026"))
 				.thenReturn("sub-ana");
 
 		// Sin token: el registro es publico. El "rol" del cuerpo se ignora
 		mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"nombre":" Ana Muñoz ","email":"Ana@SyncPass.test","password":"Clave#2026","rol":"ADMINISTRADOR"}"""))
+						{"nombre":" Ana Muñoz ","email":"Ana@SyncPass.test","telefono":"+56912345678","password":"Clave#2026","rol":"ADMINISTRADOR"}"""))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.email").value("ana@syncpass.test"))
@@ -42,7 +42,7 @@ class RegistroTest extends PruebaBase {
 
 	@Test
 	void emailYaRegistradoResponde409SinTocarCognito() throws Exception {
-		when(cognitoService.registrar("repetida@syncpass.test", "Repetida", "BENEFICIARIO", "Clave#2026"))
+		when(cognitoService.registrar("repetida@syncpass.test", "Repetida", "+56912345678", "BENEFICIARIO", "Clave#2026"))
 				.thenReturn("sub-repetida");
 		mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
 				.content(registro("repetida@syncpass.test", "Repetida")))
@@ -52,15 +52,15 @@ class RegistroTest extends PruebaBase {
 				.content(registro("REPETIDA@syncpass.test", "Otra")))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error").value(CognitoService.CUENTA_EXISTENTE));
-		verify(cognitoService, never()).registrar("repetida@syncpass.test", "Otra", "BENEFICIARIO", "Clave#2026");
+		verify(cognitoService, never()).registrar("repetida@syncpass.test", "Otra", "+56912345678", "BENEFICIARIO", "Clave#2026");
 	}
 
 	@Test
 	void siLaBaseFallaSeEliminaLaCuentaDeCognito() throws Exception {
 		// Cognito devuelve un sub que ya existe en la base: el INSERT falla y se compensa en Cognito
-		when(cognitoService.registrar("primera@syncpass.test", "Primera", "BENEFICIARIO", "Clave#2026"))
+		when(cognitoService.registrar("primera@syncpass.test", "Primera", "+56912345678", "BENEFICIARIO", "Clave#2026"))
 				.thenReturn("sub-duplicado-registro");
-		when(cognitoService.registrar("segunda@syncpass.test", "Segunda", "BENEFICIARIO", "Clave#2026"))
+		when(cognitoService.registrar("segunda@syncpass.test", "Segunda", "+56912345678", "BENEFICIARIO", "Clave#2026"))
 				.thenReturn("sub-duplicado-registro");
 		mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
 				.content(registro("primera@syncpass.test", "Primera")))
@@ -75,7 +75,7 @@ class RegistroTest extends PruebaBase {
 	@Test
 	void datosInvalidosResponden400SinTocarCognito() throws Exception {
 		mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nombre\":\"Corta\",\"email\":\"corta@syncpass.test\",\"password\":\"123\"}"))
+				.content("{\"nombre\":\"Corta\",\"email\":\"corta@syncpass.test\",\"telefono\":\"+56912345678\",\"password\":\"123\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error").value("La contraseña debe tener entre 8 y 256 caracteres"));
 
@@ -84,7 +84,13 @@ class RegistroTest extends PruebaBase {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error").value("El email no es válido"));
 
-		verify(cognitoService, never()).registrar(anyString(), anyString(), anyString(), anyString());
+		// Sin el prefijo internacional: Cognito exige E.164
+		mockMvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nombre\":\"Ana\",\"email\":\"ana@syncpass.test\",\"telefono\":\"912345678\",\"password\":\"Clave#2026\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error").value("El teléfono debe tener formato internacional, por ejemplo +56912345678"));
+
+		verify(cognitoService, never()).registrar(anyString(), anyString(), anyString(), anyString(), anyString());
 	}
 
 	@Test
@@ -124,6 +130,6 @@ class RegistroTest extends PruebaBase {
 	}
 
 	private static String registro(String email, String nombre) {
-		return "{\"nombre\":\"" + nombre + "\",\"email\":\"" + email + "\",\"password\":\"Clave#2026\"}";
+		return "{\"nombre\":\"" + nombre + "\",\"email\":\"" + email + "\",\"telefono\":\"+56912345678\",\"password\":\"Clave#2026\"}";
 	}
 }

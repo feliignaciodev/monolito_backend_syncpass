@@ -193,9 +193,10 @@ public class CognitoService {
     /**
      * Auto-registro con SignUp: Cognito deja la cuenta sin confirmar y envia un codigo al email. Luego agrega
      * el usuario al grupo del rol; si eso falla, lo elimina para no dejarlo a medias. Devuelve el {@code sub}.
-     * El pool debe usar el email como nombre de usuario y tener habilitado el auto-registro.
+     * El pool debe usar el email como nombre de usuario y tener habilitado el auto-registro. El telefono va
+     * en formato E.164 (+56912345678) porque el pool lo exige como atributo obligatorio.
      */
-    public String registrar(String email, String nombre, String rol, String password) {
+    public String registrar(String email, String nombre, String telefono, String rol, String password) {
         String sub;
         try {
             sub = cognito.signUp(SignUpRequest.builder()
@@ -204,7 +205,8 @@ public class CognitoService {
                     .password(password)
                     .userAttributes(
                             AttributeType.builder().name("email").value(email).build(),
-                            AttributeType.builder().name("name").value(nombre).build())
+                            AttributeType.builder().name("name").value(nombre).build(),
+                            AttributeType.builder().name("phone_number").value(telefono).build())
                     .build())
                     .userSub();
         } catch (UsernameExistsException e) {

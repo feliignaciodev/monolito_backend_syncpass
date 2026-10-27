@@ -144,7 +144,8 @@ public class UsuarioService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, CognitoService.CUENTA_EXISTENTE);
         }
 
-        String sub = cognitoService.registrar(email, nombre, rol.getNombre(), request.password());
+        String sub = cognitoService.registrar(email, nombre, request.telefono(), rol.getNombre(),
+                request.password());
 
         Usuario usuario = new Usuario();
         usuario.setCognitoSub(sub);

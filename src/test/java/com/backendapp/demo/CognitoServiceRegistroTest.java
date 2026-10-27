@@ -40,12 +40,14 @@ class CognitoServiceRegistroTest {
 	void registrarHaceSignUpConElClientDelFrontYAgregaAlGrupo() {
 		when(cognito.signUp(any(SignUpRequest.class))).thenReturn(SignUpResponse.builder().userSub("sub-1").build());
 
-		assertEquals("sub-1", servicio.registrar("ana@syncpass.test", "Ana", "BENEFICIARIO", "Clave#2026"));
+		assertEquals("sub-1", servicio.registrar("ana@syncpass.test", "Ana", "+56912345678", "BENEFICIARIO", "Clave#2026"));
 
 		ArgumentCaptor<SignUpRequest> signUp = ArgumentCaptor.forClass(SignUpRequest.class);
 		verify(cognito).signUp(signUp.capture());
 		assertEquals("client-web", signUp.getValue().clientId());
 		assertEquals("ana@syncpass.test", signUp.getValue().username());
+		assertEquals("+56912345678", signUp.getValue().userAttributes().stream()
+				.filter(a -> a.name().equals("phone_number")).findFirst().orElseThrow().value());
 
 		ArgumentCaptor<AdminAddUserToGroupRequest> grupo = ArgumentCaptor.forClass(AdminAddUserToGroupRequest.class);
 		verify(cognito).adminAddUserToGroup(grupo.capture());
@@ -60,7 +62,7 @@ class CognitoServiceRegistroTest {
 				.thenThrow(ResourceNotFoundException.builder().message("Group not found").build());
 
 		ResponseStatusException error = assertThrows(ResponseStatusException.class,
-				() -> servicio.registrar("sin-grupo@syncpass.test", "Sin Grupo", "BENEFICIARIO", "Clave#2026"));
+				() -> servicio.registrar("sin-grupo@syncpass.test", "Sin Grupo", "+56912345678", "BENEFICIARIO", "Clave#2026"));
 
 		assertEquals(HttpStatus.BAD_GATEWAY, error.getStatusCode());
 		ArgumentCaptor<AdminDeleteUserRequest> borrado = ArgumentCaptor.forClass(AdminDeleteUserRequest.class);
@@ -73,7 +75,7 @@ class CognitoServiceRegistroTest {
 		when(cognito.signUp(any(SignUpRequest.class))).thenThrow(UsernameExistsException.builder().build());
 
 		ResponseStatusException error = assertThrows(ResponseStatusException.class,
-				() -> servicio.registrar("ana@syncpass.test", "Ana", "BENEFICIARIO", "Clave#2026"));
+				() -> servicio.registrar("ana@syncpass.test", "Ana", "+56912345678", "BENEFICIARIO", "Clave#2026"));
 
 		assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
 		assertEquals(CognitoService.CUENTA_EXISTENTE, error.getReason());
@@ -86,7 +88,7 @@ class CognitoServiceRegistroTest {
 				.message("SignUp is not permitted for this user pool").build());
 
 		ResponseStatusException error = assertThrows(ResponseStatusException.class,
-				() -> servicio.registrar("ana@syncpass.test", "Ana", "BENEFICIARIO", "Clave#2026"));
+				() -> servicio.registrar("ana@syncpass.test", "Ana", "+56912345678", "BENEFICIARIO", "Clave#2026"));
 
 		assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatusCode());
 	}
