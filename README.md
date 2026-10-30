@@ -51,10 +51,11 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 
 - ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio); la aplicacion conecta al Session pooler.
 - ✅ Flyway aplico V1 y V2 en Supabase; el arranque posterior valido el esquema en version 2 y Hibernate inicio correctamente.
-- ⚠️ El User Pool y App Client que deben usarse son `us-east-1_AwWWrn8Ib` y `47v1h6d5fb83r3cle10gsv4hjq` en `us-east-1`. Su configuración y disponibilidad real deben confirmarse en Cognito antes de probar el login o desplegar.
+- ⚠️ Se identificaron como recursos Cognito esperados el User Pool `us-east-1_AwWWrn8Ib` y el App Client `47v1h6d5fb83r3cle10gsv4hjq` en `us-east-1`. Falta confirmar en la consola sus flujos, auto-registro, atributos y grupos.
 - ✅ `mvnw clean package`: 33 pruebas OK y JAR generado.
 - ✅ La API local responde `UP` en `http://localhost:8080/api/health`.
-- ❌ EC2/HTTPS y el login real de Cognito todavia no estan verificados. No hay un servidor publicado aun.
+- ✅ La EC2 sirve el sitio por HTTPS en `https://syncpass.duckdns.org`; `https://syncpass.duckdns.org/api/health` responde `UP`. Nginx está activo y su sitio apunta a `/var/www/kt`.
+- ⚠️ Falta probar registro, confirmación por correo y login con un usuario real de Cognito desde el sitio publicado.
 
 ## 🗺️ Ruta de trabajo / tickets
 
