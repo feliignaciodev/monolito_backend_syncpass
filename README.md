@@ -51,7 +51,7 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 
 - ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio); la aplicacion conecta al Session pooler.
 - ✅ Flyway aplico V1 y V2 en Supabase; el arranque posterior valido el esquema en version 2 y Hibernate inicio correctamente.
-- ⚠️ Cognito esta configurado localmente con el pool `us-east-1_AwWWrn8lb` y su App Client, pero el endpoint publico JWKS devolvio HTTP 404. Verificar que el pool exista en `us-east-1` antes de probar login o desplegar.
+- ⚠️ El User Pool y App Client que deben usarse son `us-east-1_AwWWrn8Ib` y `47v1h6d5fb83r3cle10gsv4hjq` en `us-east-1`. Su configuración y disponibilidad real deben confirmarse en Cognito antes de probar el login o desplegar.
 - ✅ `mvnw clean package`: 33 pruebas OK y JAR generado.
 - ✅ La API local responde `UP` en `http://localhost:8080/api/health`.
 - ❌ EC2/HTTPS y el login real de Cognito todavia no estan verificados. No hay un servidor publicado aun.
@@ -128,7 +128,7 @@ Las pruebas usan H2 y Cognito simulado. No prueban conectividad real con Cognito
 
 ## 🚀 Publicar y probar desde otros dispositivos (EC2)
 
-La ejecucion local solo es accesible desde tu PC o la misma red Wi-Fi; no es una URL publica. Para dejar la API disponible en Internet usa EC2 con HTTPS. **Antes de desplegar, confirma en Cognito que el User Pool indicado exista en `us-east-1`**: al validar `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AwWWrn8lb/.well-known/jwks.json` se recibio HTTP 404, por lo que el login todavia no esta listo para uso remoto.
+La ejecucion local solo es accesible desde tu PC o la misma red Wi-Fi; no es una URL publica. Para dejar la API disponible en Internet usa EC2 con HTTPS. Antes de desplegar, confirma en Cognito que el User Pool `us-east-1_AwWWrn8Ib` y el App Client `47v1h6d5fb83r3cle10gsv4hjq` existen en `us-east-1` y tienen los flujos y grupos requeridos. No ejecutes `deploy/cognito-setup.ps1` sin modificarlo para reutilizar esos recursos.
 
 1. Inicia AWS Academy Learner Lab y configura sus credenciales temporales localmente siguiendo [pasos.md, secciones 0 y 4](pasos.md). No las pegues en GitHub ni en el chat.
 2. En `us-east-1`, crea una instancia Amazon Linux 2023, asigna el perfil IAM `LabInstanceProfile`, crea/usa una llave SSH y asocia una Elastic IP. En el Security Group permite SSH solo desde tu IP y HTTP/HTTPS (80/443); **no abras 8080**.
