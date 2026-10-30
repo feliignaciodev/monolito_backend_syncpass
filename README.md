@@ -51,11 +51,10 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 
 - ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio); la aplicacion conecta al Session pooler.
 - ✅ Flyway aplico V1 y V2 en Supabase; el arranque posterior valido el esquema en version 2 y Hibernate inicio correctamente.
-- ⚠️ Se identificaron como recursos Cognito esperados el User Pool `us-east-1_AwWWrn8Ib` y el App Client `47v1h6d5fb83r3cle10gsv4hjq` en `us-east-1`. Falta confirmar en la consola sus flujos, auto-registro, atributos y grupos.
-- ✅ `mvnw clean package`: 33 pruebas OK y JAR generado.
+- ✅ Se validó el inicio de sesión móvil con una cuenta creada y confirmada desde el frontend; la app pudo autenticarse contra el backend desplegado.
+- ✅ `mvnw clean package`: 47 pruebas OK y JAR generado.
 - ✅ La API local responde `UP` en `http://localhost:8080/api/health`.
-- ✅ La EC2 sirve el sitio por HTTPS en `https://syncpass.duckdns.org`; `https://syncpass.duckdns.org/api/health` responde `UP`. Nginx está activo y su sitio apunta a `/var/www/kt`.
-- ⚠️ Falta probar registro, confirmación por correo y login con un usuario real de Cognito desde el sitio publicado.
+- ✅ El 30-10-2026 se comprobó que el sitio responde por HTTPS en `https://syncpass.duckdns.org` y que `https://syncpass.duckdns.org/api/health` responde `UP`.
 
 ## 🗺️ Ruta de trabajo / tickets
 
@@ -189,6 +188,18 @@ Una vez instalado, el backend se ejecuta como servicio `systemd`; no necesitas a
    ```
 
 **Qué ocurre si algo se apaga:** al reiniciar Linux, `systemd` vuelve a levantar la API y Nginx automáticamente. Si se detiene la instancia EC2 (por ejemplo, al finalizar una sesión de AWS Academy), el sistema queda inaccesible hasta que vuelvas a iniciar la instancia; después verifica `/api/health`. La Elastic IP conserva el dominio apuntando al servidor. Las credenciales temporales de AWS CLI de tu PC pueden caducar y bloquear despliegues, pero no detienen por sí solas la API: el servicio EC2 obtiene los parámetros mediante el rol IAM de la instancia.
+
+## 🔎 Por verificar
+
+El inicio de sesión móvil **sí se probó** con una cuenta creada y confirmada desde el frontend. Eso valida el flujo general de autenticación con una cuenta real, pero no todas las funciones ni todos los estados de sesión. Pendientes para una validación completa:
+
+- [ ] En la app móvil, descargar el catálogo y completar una sincronización de asistencia y una encuesta; confirmar que los datos llegan a la API y aparecen en los reportes.
+- [ ] Cerrar y volver a abrir la app, y probar qué ocurre cuando vence el access token. El backend entrega un access token y no ofrece un endpoint de renovación; confirmar que la app solicita iniciar sesión otra vez de forma clara.
+- [ ] Si se permitirá el auto-registro desde la app móvil, completar allí la confirmación del código de Cognito. El backend expone los endpoints para confirmar y reenviar el código; el flujo móvil todavía debe verificarse y contar con la pantalla que los invoque.
+- [ ] Decidir si el login web debe pasar por `POST /api/auth/login` o si se mantendrá el login directo con Cognito. El login directo ya funciona, pero no ejecuta las comprobaciones de perfil, rol y estado activo que aplica el backend en su propio flujo de login.
+- [ ] Revisar la política de protección del token móvil: almacenamiento cifrado y exclusión de los respaldos del dispositivo, según el nivel de protección requerido.
+- [ ] Probar por separado la conexión real a Supabase y Cognito. `/api/health` solo confirma que responde la API; por sí solo no comprueba esas dependencias.
+- [ ] Compilar y probar la app Android en un entorno con Android SDK configurado; la compilación no se pudo verificar durante esta revisión.
 
 ## 🛡️ Precauciones importantes
 
