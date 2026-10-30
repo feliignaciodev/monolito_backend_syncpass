@@ -160,6 +160,36 @@ La ejecucion local solo es accesible desde tu PC o la misma red Wi-Fi; no es una
 
 La publicacion EC2 requiere recursos y credenciales AWS de tu cuenta; no se realiza automaticamente al subir el codigo a GitHub.
 
+## ▶️ Uso diario: levantar y comprobar la aplicación
+
+Una vez instalado, el backend se ejecuta como servicio `systemd`; no necesitas abrir una consola ni dejar tu PC encendido. Si la EC2 sigue en ejecución, la API y el sitio permanecen disponibles. El servicio está configurado para iniciar junto con Linux y reiniciarse si falla.
+
+1. En AWS Console → **EC2 → Instances**, confirma que la instancia esté en estado **Running**. Si está detenida, selecciónala y pulsa **Instance state → Start instance**. Mientras esté detenida, la app móvil y el sitio no podrán conectarse.
+2. Comprueba el estado público de la API desde PowerShell:
+
+   ```powershell
+   Invoke-RestMethod 'https://syncpass.duckdns.org/api/health'
+   ```
+
+   Debe responder `UP`. Con eso el backend está listo; abre la app instalada en el teléfono y asegúrate de tener conexión a Internet.
+3. Si no responde, entra por SSH y revisa/arranca los servicios:
+
+   ```powershell
+   ssh -i '<RUTA_A_LA_LLAVE.pem>' ec2-user@'<ELASTIC_IP>' `
+     'sudo systemctl status syncpass nginx --no-pager'
+   ssh -i '<RUTA_A_LA_LLAVE.pem>' ec2-user@'<ELASTIC_IP>' `
+     'sudo systemctl restart syncpass nginx'
+   ```
+
+   Luego consulta el diagnóstico del backend si sigue fallando:
+
+   ```powershell
+   ssh -i '<RUTA_A_LA_LLAVE.pem>' ec2-user@'<ELASTIC_IP>' `
+     'sudo journalctl -u syncpass -n 100 --no-pager'
+   ```
+
+**Qué ocurre si algo se apaga:** al reiniciar Linux, `systemd` vuelve a levantar la API y Nginx automáticamente. Si se detiene la instancia EC2 (por ejemplo, al finalizar una sesión de AWS Academy), el sistema queda inaccesible hasta que vuelvas a iniciar la instancia; después verifica `/api/health`. La Elastic IP conserva el dominio apuntando al servidor. Las credenciales temporales de AWS CLI de tu PC pueden caducar y bloquear despliegues, pero no detienen por sí solas la API: el servicio EC2 obtiene los parámetros mediante el rol IAM de la instancia.
+
 ## 🛡️ Precauciones importantes
 
 - **Migraciones:** Flyway aplica V1 y V2 automaticamente. Una vez aplicada una version en un ambiente compartido, no editarla: agregar V3, V4, etc.
