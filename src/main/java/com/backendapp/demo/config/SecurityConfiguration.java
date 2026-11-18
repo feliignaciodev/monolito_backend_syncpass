@@ -38,9 +38,31 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityConfiguration {
 
 	@Bean
+	org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+		String origins = System.getenv().getOrDefault("CORS_ALLOWED_ORIGINS",
+				"http://localhost:5173,http://localhost:3000");
+		org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+		for (String origin : origins.split(",")) {
+			String trimmed = origin.trim();
+			if (!trimmed.isEmpty()) {
+				configuration.addAllowedOrigin(trimmed);
+			}
+		}
+		configuration.addAllowedMethod("*");
+		configuration.addAllowedHeader("*");
+		configuration.setAllowCredentials(true);
+		configuration.setMaxAge(3600L);
+		org.springframework.web.cors.UrlBasedCorsConfigurationSource source =
+				new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
+
+	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
 			Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter) throws Exception {
 		return http
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
