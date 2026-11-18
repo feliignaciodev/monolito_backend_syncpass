@@ -2,6 +2,11 @@
 
 > Documento de integración para **Web** (`fullstack2-proyecto-kt`) y **Móvil** (`syncpass-movil`).
 > Generado a partir del backend implementado en `monolito_backend_syncpass`.
+>
+> ⚠️ **Alcance parcial / backlog:** el registro de token y el envío manual están implementados en
+> código, pero **no hay credenciales FCM de producción ni validación E2E**. El historial
+> (`GET /api/notifications/historial`) **devuelve `[]`**: no está implementada la tabla de historial.
+> Las notificaciones están fuera del alcance principal; ver `ALCANCE.md` §8. No rehacer notificaciones.
 
 ---
 

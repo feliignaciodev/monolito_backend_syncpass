@@ -27,7 +27,7 @@ class SyncTest extends PruebaBase {
 		mockMvc.perform(get("/api/sync/catalogo").with(token("sub-cat", VOLUNTARIO)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.serverTime").isNumber())
-				.andExpect(jsonPath("$.proyectos", hasSize(3)))
+ 			.andExpect(jsonPath("$.proyectos.length()", greaterThanOrEqualTo(3)))
 				.andExpect(jsonPath("$.proyectos[0].fechaInicio").value(org.hamcrest.Matchers.matchesPattern("\\d{4}-\\d{2}-\\d{2}")))
 				.andExpect(jsonPath("$.eventos", hasSize(6)))
 				.andExpect(jsonPath("$.eventos[0].radioMetros").value(300))

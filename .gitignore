@@ -31,3 +31,20 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Entorno y credenciales (no versionar) ###
+# La plantilla de referencia .env.example SI se versiona; el resto no.
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+# Credenciales / claves locales (AWS, Firebase/FCM, SSH, etc.)
+credentials.json
+*credentials*.json
+*secret*.json
+*.pem
+*.key
+*.p12
+*.pfx
+local.properties

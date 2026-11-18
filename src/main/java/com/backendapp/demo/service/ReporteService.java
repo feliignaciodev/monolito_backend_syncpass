@@ -16,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backendapp.demo.domain.Asistencia;
 import com.backendapp.demo.domain.EstadoInscripcion;
+import com.backendapp.demo.domain.EstadoProyecto;
 import com.backendapp.demo.domain.Evento;
 import com.backendapp.demo.domain.Proyecto;
 import com.backendapp.demo.dto.MetricasEventoDto;
@@ -84,7 +85,7 @@ public class ReporteService {
     @Transactional(readOnly = true)
     public List<ResumenProyectoDto> resumenProyectos() {
         List<ResumenProyectoDto> filas = new ArrayList<>();
-        for (Proyecto proyecto : proyectoRepository.findAll(Sort.by("id"))) {
+        for (Proyecto proyecto : proyectoRepository.findByEstadoNot(EstadoProyecto.FINALIZADO)) {
             List<Evento> eventos = eventoRepository.findByProyecto_IdOrderByFechaHoraAsc(proyecto.getId());
             List<Long> idsEventos = eventos.stream().map(Evento::getId).toList();
 

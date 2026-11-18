@@ -3,6 +3,12 @@
 > **Repositorio:** `monolito_backend_syncpass` (Backend Spring Boot)
 > **Fecha de creación:** 2026-11-13
 > **Referencia:** EVA-3.md — Rúbrica de Evaluación Prueba 3
+>
+> **Estado de la documentación (17-11-2026):** se distinguen **código**, **tests H2**,
+> **nube no verificada**, **despliegue (scripts preparados)** y **E2E Android**. La disponibilidad
+> actual de Supabase / EC2 / Cognito / Parameter Store / FCM **no fue verificada en esta revisión**.
+> No existe AWS API Gateway desplegado (nginx en EC2 actúa como proxy inverso). Ver
+> [`ARQUITECTURA.md`](ARQUITECTURA.md) y [`ALCANCE.md`](ALCANCE.md).
 
 ---
 
@@ -24,31 +30,31 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 
 | Requisito EVA-3 | Estado | Evidencia |
 |-----------------|--------|-----------|
-| Base de datos en **Supabase** | ✅ Completado | `application.properties` configurado con PostgreSQL/Supabase, migraciones Flyway V1 y V2 |
-| API REST en **Spring Boot** | ✅ Completado | 80 archivos Java, 12 controladores REST |
-| Despliegue en **AWS EC2** | ⏳ Pendiente | Script `deploy/` presente, sin verificar instancia activa |
-| API Gateway (opcional) | ❌ No implementado | No requerido para EVA-3 |
-| Autenticación con roles (Cognito) | ✅ Completado | AWS Cognito integrado con roles: ADMINISTRADOR, COORDINADOR, VOLUNTARIO, BENEFICIARIO |
+| Base de datos en **Supabase** | 🛠️ Código / nube no verificada | `application.properties` configurado con PostgreSQL/Supabase; Flyway V1 y V2 (más V3 preparada de notificaciones). Conexión real no verificada en esta revisión |
+| API REST en **Spring Boot** | ✅ Código | 9 controladores REST (`@RestController`) + 1 `@RestControllerAdvice`; 24 endpoints (ver `ALCANCE.md` §3) |
+| Despliegue en **AWS EC2** | 🛠️ Scripts preparados | `deploy/` presente (nginx, systemd, HTTPS, Parameter Store); instancia/HTTPS no verificados en esta revisión |
+| API Gateway (opcional) | ❌ No desplegado | No requerido; nginx en EC2 actúa como proxy inverso. No dibujar como desplegado |
+| Autenticación con roles (Cognito) | ✅ Código + tests H2 | Grupos Cognito: ADMINISTRADOR, COORDINADOR, VOLUNTARIO, BENEFICIARIO (equivalencias en `ALCANCE.md` §7); conexión real no verificada |
 
 ### 2.2. Aplicación Móvil Android (EVA-3 §1.1.B)
 
 | Requisito EVA-3 | Estado | Notas |
 |-----------------|--------|-------|
-| App en **Kotlin** | ⏳ Repo externo | `syncpass-movil`, no en este repositorio |
-| Integración **2 APIs nativas** | ⏳ Repo externo | Geolocalización y Cámara (QR) |
-| Arquitectura **MVVM** | ⏳ Repo externo | Verificar en repo móvil |
-| Persistencia **offline-first** | ⏳ Repo externo | Verificar en repo móvil |
-| Sincronización explícita | ✅ Backend listo | `GET /api/sync/catalogo` y `POST /api/sync/confirmar-registro` |
+| App en **Kotlin** | 🛠️ Repo externo | `syncpass-movil` (`C:\Src\syncpass-movil`), no en este repositorio |
+| Integración **2 APIs nativas** | 🛠️ Repo externo | Geolocalización y Cámara (QR) |
+| Arquitectura **MVVM** | 🛠️ Repo externo | Documentada en `ARQUITECTURA.md` §3 (Screens → ViewModels → Repositorios → Room/DataStore/Retrofit) |
+| Persistencia **offline-first** | 🛠️ Repo externo | Room + DataStore en el repo móvil; ver `ARQUITECTURA.md` §3 |
+| Sincronización explícita | ✅ Código + tests H2 | `GET /api/sync/catalogo`, `POST /api/sync/asistencias` y `POST /api/sync/encuestas`. **No existe** `/api/sync/confirmar-registro` |
 
 ### 2.3. Documentación, Diseño y Testing (EVA-3 §1.2)
 
 | Requisito EVA-3 | Estado | Evidencia |
 |-----------------|--------|-----------|
-| **ARQUITECTURA.md** (Diagramas C4) | ❌ No implementado | Faltan: C1 (Contexto), C2 (Contenedores), C3 (Componentes) |
-| **ALCANCE.md** (Levantamiento funcional) | ❌ No implementado | Faltan: RF, RNF, casos de uso, flujos |
-| Mockups UI/UX | ❌ No implementado | `syncpass.html` existe en `/docs`, pero sin trazabilidad |
-| Unit Tests | ✅ Parcial | 9 clases de test en backend (64 pruebas pasando) |
-| 30% Code Coverage | ⏳ Pendiente | Solo backend tiene tests; falta reporte JaCoCo |
+| **ARQUITECTURA.md** (Diagramas C4) | ✅ Documentado | C1, C2 real (sin API Gateway desplegado) y C3 MVVM; trazabilidad a clases reales |
+| **ALCANCE.md** (Levantamiento funcional) | ✅ Documentado | RF/RNF numerados, casos de uso, flujos, matriz RF→endpoint→servicio→test y backlog |
+| Mockups UI/UX | 🛠️ Parcial | `syncpass.html` existe en `/docs`; trazabilidad de implementado vs. backlog en `ALCANCE.md` |
+| Unit Tests | ✅ Tests H2 | 8 clases de test concretas (+ `PruebaBase`), 64 pruebas, 0 fallos; Cognito simulado |
+| 30% Code Coverage | ✅ Cumplido | JaCoCo 0.8.16: 71,79% de líneas; `prepare-agent` + `report` (test) + `check` (verify, mín. 0.30) |
 
 ---
 
@@ -200,16 +206,22 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 
 ## 4. Endpoints del Backend (Resumen)
 
+> Listado completo y verificado de los 24 endpoints en [`ALCANCE.md` §3](ALCANCE.md).
+> **No existen** `/api/sync/confirmar-registro` ni `/api/reportes/proyecto/{id}`.
+
 ### Endpoints existentes (pre-existentes)
 
 | Método | Ruta | Autenticación | Rol | Descripción |
 |--------|------|---------------|-----|-------------|
 | `POST` | `/api/auth/login` | — | Cualquier usuario | Login con Cognito |
-| `POST` | `/api/auth/registro` | — | Cualquier usuario | Registro de usuario |
+| `POST` | `/api/auth/registro`, `/api/auth/registro/confirmar`, `/api/auth/registro/reenviar-codigo` | — | Cualquier usuario | Registro y confirmación de email |
+| `GET` | `/api/me` | JWT | Autenticado | Perfil (`sub`) y roles del token |
 | `GET` | `/api/sync/catalogo` | JWT | Autenticado | Catálogo completo (proyectos + eventos) |
-| `POST` | `/api/sync/confirmar-registro` | JWT | Autenticado | Confirmar inscripción |
-| `GET` | `/api/reportes/proyecto/{id}` | JWT | Autenticado | Reporte CSV por proyecto |
-| `GET` | `/api/health` | — | — | Health check |
+| `POST` | `/api/sync/asistencias`, `/api/sync/encuestas` | JWT | Autenticado | Subida idempotente por lotes |
+| `GET` | `/api/eventos/{id}/metricas` | JWT | COORDINADOR, ADMINISTRADOR | Métricas en vivo del evento |
+| `GET` | `/api/reportes/resumen`, `/api/reportes/asistencias.csv` | JWT | COORDINADOR, ADMINISTRADOR | Resumen y CSV global de asistencias |
+| `GET` | `/api/usuarios`, `GET /{id}`, `POST`, `PATCH /{id}/activo` | JWT | ADMINISTRADOR | Gestión de usuarios |
+| `GET` | `/api/health`, `/actuator/health` | — | — | Health check |
 
 ### Endpoints de Notificaciones Push (TICKET-002)
 
@@ -217,7 +229,10 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 |--------|------|---------------|-----|-------------|
 | `POST` | `/api/notifications/token` | JWT | Autenticado | Registrar token FCM |
 | `POST` | `/api/notifications/manual` | JWT | ADMINISTRADOR | Enviar notificación manual |
-| `GET` | `/api/notifications/historial` | JWT | ADMINISTRADOR | Historial de notificaciones |
+| `GET` | `/api/notifications/historial` | JWT | ADMINISTRADOR | **Devuelve `[]`** (tabla de historial en backlog) |
+
+> Notificaciones: alcance **parcial / backlog** (token y envío manual con código; sin credenciales FCM
+> de producción, sin tests dedicados y sin historial persistido). No rehacer notificaciones.
 
 ### Endpoints de Cursos (TICKET-006)
 
@@ -242,9 +257,13 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 | Reportes CSV | ✅ Completado | `ReporteTest.java` |
 | Usuarios CRUD | ✅ Completado | `UsuarioTest.java` |
 | Seguridad (roles) | ✅ Completado | `SeguridadTest.java` |
-| Notificaciones Push (FCM) | ✅ Completado | Pendiente de pruebas específicas |
-| CRUD Cursos | ✅ Completado | `CursoTest.java` (17 pruebas) |
-| **Total pruebas** | **64 pruebas pasando** | `mvn test` → BUILD SUCCESS |
+| Notificaciones Push (FCM) | ⏳ Parcial / backlog | Código de token/manual/scheduler; historial devuelve `[]`; sin tests dedicados |
+| CRUD Cursos | ✅ Código + tests H2 | `CursoTest.java` (17 pruebas) |
+| **Total pruebas** | **64 pruebas, 0 fallos (tests H2)** | `.\mvnw.cmd verify` → BUILD SUCCESS; JaCoCo 71,79% líneas |
+
+**Leyenda de estado (REPO-BE):** ✅ código + tests H2 · 🛠️ código/scripts listos, nube no verificada ·
+⏳ parcial/backlog. Las pruebas usan H2 y Cognito simulado: **no** prueban conectividad con AWS ni Supabase.
+El login móvil se documentó históricamente como E2E; catálogo/sync/reportes desde la app siguen pendientes.
 
 ### REPO-WEB (fullstack2-proyecto-kt) — Repositorio externo
 
@@ -279,27 +298,25 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 
 ## 7. Pendiente para EVA-3
 
-### Documentos faltantes (EVA-3 §1.2.A)
+### Documentos (EVA-3 §1.2.A) — completados en esta revisión
 
-- [ ] **`ARQUITECTURA.md`** — Diagramas C4:
-  - [ ] C1 (Contexto): Interacción del sistema con usuarios y servicios externos.
-  - [ ] C2 (Contenedores): Flujo App Móvil → API → Cognito → EC2 → Supabase.
-  - [ ] C3 (Componentes): Arquitectura MVVM de la app móvil.
-- [ ] **`ALCANCE.md`** — Levantamiento funcional:
-  - [ ] Requerimientos Funcionales (RF).
-  - [ ] Requerimientos No Funcionales (RNF).
-  - [ ] Casos de uso detallados.
-  - [ ] Flujos principales de la aplicación.
+- [x] **`ARQUITECTURA.md`** — Diagramas C4:
+  - [x] C1 (Contexto): usuarios/perfiles, Android, Web, Cognito, Supabase, FCM (parcial).
+  - [x] C2 (Contenedores): Android/Web → HTTPS/nginx EC2 → Spring Boot → Cognito/Supabase/Parameter Store. **Sin API Gateway desplegado**.
+  - [x] C3 (Componentes): MVVM de la app (`syncpass-movil`): Screens → ViewModels → Repositorios → Room/DataStore/Retrofit.
+- [x] **`ALCANCE.md`** — Levantamiento funcional:
+  - [x] RF/RNF numerados, casos de uso detallados, flujos principal/alternos.
+  - [x] Matriz RF→endpoint→servicio→test, equivalencia de roles y backlog explícito.
 
 ### Testing y cobertura (EVA-3 §1.2.C)
 
-- [ ] **Reporte JaCoCo** — Generar reporte de cobertura de código (mínimo 30%).
-- [ ] **Pruebas de notificaciones** — Agregar tests para `NotificationService` y `NotificationScheduler`.
+- [x] **Reporte JaCoCo** — `jacoco-maven-plugin` 0.8.16 en `pom.xml`: `prepare-agent`, `report` en `test` y `check` en `verify` (mínimo 0.30 de líneas). Resultado real: **71,79%** (855 cubiertas / 1191). Reporte: `target/site/jacoco/index.html` y `target/site/jacoco/jacoco.xml`.
+- [ ] **Pruebas de notificaciones** — Backlog (alcance parcial; no rehacer notificaciones).
 
-### Despliegue (EVA-3 §1.1.A)
+### Despliegue (EVA-3 §1.1.A) — no verificado en esta revisión
 
-- [ ] **AWS EC2** — Verificar instancia activa y accesible.
-- [ ] **Configuración FCM** — Agregar credenciales de producción (`fcm.projectId`, `fcm.credentialsPath`).
+- [ ] **AWS EC2** — Verificar instancia activa y accesible (scripts `deploy/` preparados).
+- [ ] **Configuración FCM** — Credenciales de producción y E2E pendientes (fuera del alcance principal).
 
 ### Entidades pendientes de mantenimiento
 
@@ -316,21 +333,22 @@ Las siguientes entidades podrían necesitar mantenedores CRUD similares al de cu
 
 ## 8. Comandos de Verificación
 
-```bash
+```powershell
 # Compilar el proyecto
-mvn clean compile -DskipTests
+.\mvnw.cmd clean compile -DskipTests
 
-# Ejecutar todas las pruebas
-mvn test
+# Ejecutar todas las pruebas (64) y generar el reporte JaCoCo
+.\mvnw.cmd clean test
+
+# Ejecutar pruebas + verificar cobertura mínima del 30%
+.\mvnw.cmd verify
 
 # Ejecutar pruebas específicas
-mvn test -Dtest=CursoTest
-mvn test -Dtest=SeguridadTest
-mvn test -Dtest=SyncTest
-
-# Generar reporte de cobertura (si JaCoCo está configurado)
-mvn jacoco:report
+.\mvnw.cmd test -Dtest=CursoTest
+.\mvnw.cmd test -Dtest=SyncTest
 ```
+
+Reporte HTML: `target/site/jacoco/index.html` · XML: `target/site/jacoco/jacoco.xml` · datos: `target/jacoco.exec`.
 
 ---
 
@@ -339,21 +357,22 @@ mvn jacoco:report
 ### Variables de entorno requeridas
 
 ```properties
-# FCM (Notificaciones Push)
-fcm.projectId=tu-proyecto-firebase
-fcm.credentialsPath=/ruta/a/credenciales.json
-
-# Cognito (Autenticación)
-cognito.region=us-east-1
-cognito.userPoolId=us-east-1_xxxxx
-cognito.clientId=xxxxx
+# Cognito (Autenticación) — nombres reales de application.properties
+AWS_REGION=us-east-1
+COGNITO_USER_POOL_ID=us-east-1_xxxxx
+COGNITO_CLIENT_ID=xxxxx
+COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxx
 
 # Base de datos (Supabase)
-spring.datasource.url=jdbc:postgresql://...
-spring.datasource.username=...
-spring.datasource.password=...
+DB_URL=jdbc:postgresql://...
+DB_USER=postgres.<project-ref>
+DB_PASSWORD=...
 ```
+
+En EC2 estos seis valores se leen de `/syncpass/prod/*` (Parameter Store) mediante
+`deploy/server/start.sh`. Las propiedades FCM (`fcm.projectId`, `fcm.credentialsPath`) quedan en backlog:
+**no hay credenciales de producción configuradas ni verificadas**.
 
 ---
 
-*Última actualización: 2026-11-13*
+*Última actualización: 2026-11-17 (corrección de coherencia documental; cobertura JaCoCo).*

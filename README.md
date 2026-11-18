@@ -2,6 +2,8 @@
 
 Backend monolitico modular para SyncPass: la app Android que reemplaza las planillas de papel en actividades comunitarias (acreditacion por QR, modo sin conexion, encuestas inmediatas y reportes). Se despliega como una aplicacion Spring Boot y organiza el codigo por funcionalidad, sin separar servicios.
 
+> 📐 **Arquitectura (C4):** [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) ·
+> 📋 **Alcance (RF/RNF, casos de uso, backlog):** [`docs/ALCANCE.md`](docs/ALCANCE.md)
 > 📘 **Documentacion completa, plan y bitacora:** abrir [`docs/syncpass.html`](docs/syncpass.html) en el navegador.
 > 🚀 **Despliegue paso a paso:** [`pasos.md`](pasos.md).
 
@@ -10,12 +12,12 @@ Backend monolitico modular para SyncPass: la app Android que reemplaza las plani
 | Componente | Tecnologia / estado |
 |---|---|
 | Backend | Java 21, Spring Boot 4.1.1, Maven |
-| API | REST bajo `/api`, **mismo contrato que la app Android** (`projects-duoc/Movile/docs/contrato-api.md`) |
+| API | REST bajo `/api`, **mismo contrato que la app Android** (repo `syncpass-movil`; 24 endpoints, ver `docs/ALCANCE.md` §3) |
 | Identidad | Amazon Cognito User Pool (usuarios, contrasenas y grupos = roles) |
 | Persistencia | PostgreSQL de Supabase mediante JDBC/JPA |
-| Migraciones | Flyway (V1 usuarios/roles, V2 dominio); Hibernate `ddl-auto=validate` |
-| Aplicacion movil | Kotlin + Compose en `projects-duoc/Movile/app` (estructura core/ + feature/ con Hilt); solo cambia la URL base |
-| Despliegue | EC2 + nginx + HTTPS; scripts listos en `deploy/` |
+| Migraciones | Flyway (V1 usuarios/roles, V2 dominio; V3 de notificaciones preparada); Hibernate `ddl-auto=validate` |
+| Aplicacion movil | Kotlin + Compose en `syncpass-movil` (estructura core/ + feature/ con Hilt); solo cambia la URL base |
+| Despliegue | EC2 + nginx + HTTPS; scripts listos en `deploy/`; **sin API Gateway desplegado** (nginx hace de proxy inverso) |
 
 Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los datos propios del sistema. El `sub` de Cognito vincula ambos. La API no almacena contrasenas.
 
@@ -28,8 +30,10 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 - Metricas por evento, resumen por proyecto y CSV para coordinador/administrador.
 - Gestion de usuarios (Cognito + perfil local) solo para administrador, con compensacion si falla la base.
 - Errores siempre `{"error": "mensaje"}` (400/401/403/404/409/502).
-- Datos semilla 100 % ficticios (3 proyectos, 6 eventos, 40 participantes) si la base no tiene proyectos.
-- 33 pruebas automaticas (H2 + Cognito simulado; tambien pasan sobre PostgreSQL 17).
+- Datos semilla 100 % ficticios (3 proyectos, 6 eventos, 42 participantes) si la base no tiene proyectos.
+- 64 pruebas automaticas (H2 + Cognito simulado; no prueban conectividad cloud).
+- Cobertura JaCoCo 71,79 % de lineas (minimo exigido 30 %): `target/site/jacoco/index.html`.
+- Notificaciones push: **alcance parcial / backlog** (token y envio manual con codigo; historial devuelve `[]`, sin credenciales FCM de produccion ni tests dedicados). No rehacer notificaciones.
 
 ### Endpoints
 
@@ -47,14 +51,17 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 
 **Auto-registro (web SyncPass).** `POST /api/auth/registro` hace `SignUp` en Cognito, agrega el usuario al grupo `BENEFICIARIO` y guarda el perfil local; el rol nunca viene del cliente. Si falla la asignacion del grupo o el guardado en la base, la cuenta se elimina de Cognito. La cuenta queda sin confirmar hasta que el usuario envia el codigo que le llega al email. Requiere un User Pool que use el **email como nombre de usuario**, con el auto-registro habilitado y los 4 grupos creados.
 
-### 📍 Estado comprobado
+### 📍 Estado real y verificación
 
-- ✅ Se creo el proyecto Supabase `syncpass-dev` en East US (Ohio); la aplicacion conecta al Session pooler.
-- ✅ Flyway aplico V1 y V2 en Supabase; el arranque posterior valido el esquema en version 2 y Hibernate inicio correctamente.
-- ✅ Se validó el inicio de sesión móvil con una cuenta creada y confirmada desde el frontend; la app pudo autenticarse contra el backend desplegado.
-- ✅ `mvnw clean package`: 47 pruebas OK y JAR generado.
-- ✅ La API local responde `UP` en `http://localhost:8080/api/health`.
-- ✅ El 30-10-2026 se comprobó que el sitio responde por HTTPS en `https://syncpass.duckdns.org` y que `https://syncpass.duckdns.org/api/health` responde `UP`.
+| Categoria | Estado |
+|---|---|
+| **Código** | API REST, seguridad JWT/RBAC, sync offline idempotente, reportes, usuarios y cursos implementados. Ver `docs/ARQUITECTURA.md` y `docs/ALCANCE.md`. |
+| **Tests H2** | `.\mvnw.cmd verify` → **64 pruebas, 0 fallos**, BUILD SUCCESS; JaCoCo **71,79 %** de líneas. Usan H2 + Cognito simulado: **no** prueban AWS ni Supabase reales. |
+| **Nube (no verificada)** | Código y scripts de Supabase / EC2 / nginx / Parameter Store / Cognito preparados. Históricamente se documentó un proyecto Supabase y la aplicación de Flyway V1/V2, así como una comprobación HTTPS el 30-10-2026; **la disponibilidad actual NO fue verificada en esta revisión**. No se declaran requisitos cloud cumplidos. |
+| **Desplegado** | Existen los scripts (`deploy/`) para publicar en EC2; no se afirma una instancia activa verificada. **No hay API Gateway desplegado**; nginx actúa como proxy inverso. |
+| **E2E Android** | Se documentó históricamente el login móvil con una cuenta real; catálogo, sincronización y reportes desde la app siguen **pendientes** de verificar. |
+
+> Antes de afirmar disponibilidad: `Invoke-RestMethod 'https://<dominio>/api/health'` debe responder `UP`.
 
 ## 🗺️ Ruta de trabajo / tickets
 
@@ -80,7 +87,7 @@ Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente; `🛠️` codigo
 
 ### Fase 3 — Dominio y API
 
-- [x] ✅ **API-01 — Contrato funcional.** Se adopta el contrato de la app Android (`Movile/docs/contrato-api.md`).
+- [x] ✅ **API-01 — Contrato funcional.** Contrato de la app Android documentado en `docs/ALCANCE.md` §3 (repo móvil `syncpass-movil`).
 - [x] ✅ **API-02 — Proyectos y eventos.** Migracion, modelo, repositorios, servicios, controllers, DTOs y pruebas.
 - [x] ✅ **API-03 — Participantes, asistencias, encuestas y reportes.** Mismo flujo y restricciones por rol.
 - [ ] 🛠️ **API-04 — Integracion y regresion.** Pruebas y conexion real a Supabase OK; falta validar login real con Cognito.
@@ -88,7 +95,7 @@ Leyenda: `[x] ✅` terminado o comprobado; `[ ] ❌` pendiente; `🛠️` codigo
 
 ### Fase 4 — Aplicacion movil
 
-- [x] ✅ **MOBILE-01 — Identificar el proyecto movil.** Android nativo (Kotlin, Compose, Room, Retrofit) en `projects-duoc/Movile/app` (estructura core/ + feature/ con Hilt).
+- [x] ✅ **MOBILE-01 — Identificar el proyecto movil.** Android nativo (Kotlin, Compose, Room, Retrofit) en `syncpass-movil/app` (estructura core/ + feature/ con Hilt; ver `docs/ARQUITECTURA.md` §3).
 - [x] ✅ **MOBILE-02 — Flujo de autenticacion.** La app recibe el access token de Cognito desde `POST /api/auth/login`; no habla con Cognito directamente.
 - [ ] ❌ **MOBILE-03 — Configurar ambientes.** En la app, *Configurar servidor* → `https://<dominio>/api/`.
 - [x] ✅ **MOBILE-04 — Sesion segura.** Token en DataStore privado (sin backup ni logs); release solo HTTPS; 401 marca la sesion como expirada sin perder registros.
@@ -125,6 +132,8 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```
 
 Las pruebas usan H2 y Cognito simulado. No prueban conectividad real con Cognito ni con Supabase.
+Tras `.\mvnw.cmd verify`, el reporte de cobertura queda en `target/site/jacoco/index.html`
+(XML en `target/site/jacoco/jacoco.xml`); la verificacion exige al menos 30 % de lineas.
 
 ## 🚀 Publicar y probar desde otros dispositivos (EC2)
 
@@ -203,7 +212,7 @@ El inicio de sesión móvil **sí se probó** con una cuenta creada y confirmada
 
 ## 🛡️ Precauciones importantes
 
-- **Migraciones:** Flyway aplica V1 y V2 automaticamente. Una vez aplicada una version en un ambiente compartido, no editarla: agregar V3, V4, etc.
+- **Migraciones:** Flyway gestiona V1 y V2 (y V3 de notificaciones, preparada). Una vez aplicada una version en un ambiente compartido, no editarla: agregar V4, V5, etc.
 - **Entornos:** mantener Cognito y Supabase de desarrollo separados de produccion.
 - **Contrasenas y claves:** no versionar `.env`, credenciales, tokens ni contrasenas. El App Client movil no tiene client secret. Si una credencial real se expone, rotarla.
 - **Politica de contrasenas del pool de desarrollo:** relajada (8 caracteres) solo para aceptar las cuentas demo del contrato. No usar en produccion.

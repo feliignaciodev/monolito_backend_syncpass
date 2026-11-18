@@ -7,6 +7,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.backendapp.demo.domain.EstadoProyecto;
 import com.backendapp.demo.domain.Evento;
 import com.backendapp.demo.domain.Proyecto;
 import com.backendapp.demo.dto.CatalogoResponse;
@@ -41,7 +42,8 @@ public class CatalogoService {
 
     @Transactional(readOnly = true)
     public CatalogoResponse obtenerCatalogo() {
-        List<ProyectoDto> proyectos = proyectoRepository.findAll(Sort.by("id")).stream()
+        List<ProyectoDto> proyectos = proyectoRepository.findByEstadoNot(EstadoProyecto.FINALIZADO).stream()
+                .sorted(java.util.Comparator.comparing(com.backendapp.demo.domain.Proyecto::getId))
                 .map(CatalogoService::aDto)
                 .toList();
         List<EventoDto> eventos = eventoRepository.findAll(Sort.by("id")).stream()
