@@ -31,7 +31,7 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 | Requisito EVA-3 | Estado | Evidencia |
 |-----------------|--------|-----------|
 | Base de datos en **Supabase** | 🛠️ Código / nube no verificada | `application.properties` configurado con PostgreSQL/Supabase; Flyway V1 y V2 (más V3 preparada de notificaciones). Conexión real no verificada en esta revisión |
-| API REST en **Spring Boot** | ✅ Código | 9 controladores REST (`@RestController`) + 1 `@RestControllerAdvice`; 24 endpoints (ver `ALCANCE.md` §3) |
+| API REST en **Spring Boot** | ✅ Código | 9 controladores REST (`@RestController`) + 1 `@RestControllerAdvice`; 25 endpoints (ver `ALCANCE.md` §3) |
 | Despliegue en **AWS EC2** | 🛠️ Scripts preparados | `deploy/` presente (nginx, systemd, HTTPS, Parameter Store); instancia/HTTPS no verificados en esta revisión |
 | API Gateway (opcional) | ❌ No desplegado | No requerido; nginx en EC2 actúa como proxy inverso. No dibujar como desplegado |
 | Autenticación con roles (Cognito) | ✅ Código + tests H2 | Grupos Cognito: ADMINISTRADOR, COORDINADOR, VOLUNTARIO, BENEFICIARIO (equivalencias en `ALCANCE.md` §7); conexión real no verificada |
@@ -41,7 +41,7 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 | Requisito EVA-3 | Estado | Notas |
 |-----------------|--------|-------|
 | App en **Kotlin** | 🛠️ Repo externo | `syncpass-movil` (`C:\Src\syncpass-movil`), no en este repositorio |
-| Integración **2 APIs nativas** | 🛠️ Repo externo | Geolocalización y Cámara (QR) |
+| Integración **2 APIs nativas** | 🛠️ Repo externo | Cámara (QR con CameraX + ML Kit), estado de red (`NetworkCallback`), notificaciones/foreground service y DataStore (4 APIs; sin geolocalización) |
 | Arquitectura **MVVM** | 🛠️ Repo externo | Documentada en `ARQUITECTURA.md` §3 (Screens → ViewModels → Repositorios → Room/DataStore/Retrofit) |
 | Persistencia **offline-first** | 🛠️ Repo externo | Room + DataStore en el repo móvil; ver `ARQUITECTURA.md` §3 |
 | Sincronización explícita | ✅ Código + tests H2 | `GET /api/sync/catalogo`, `POST /api/sync/asistencias` y `POST /api/sync/encuestas`. **No existe** `/api/sync/confirmar-registro` |
@@ -53,8 +53,8 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 | **ARQUITECTURA.md** (Diagramas C4) | ✅ Documentado | C1, C2 real (sin API Gateway desplegado) y C3 MVVM; trazabilidad a clases reales |
 | **ALCANCE.md** (Levantamiento funcional) | ✅ Documentado | RF/RNF numerados, casos de uso, flujos, matriz RF→endpoint→servicio→test y backlog |
 | Mockups UI/UX | 🛠️ Parcial | `syncpass.html` existe en `/docs`; trazabilidad de implementado vs. backlog en `ALCANCE.md` |
-| Unit Tests | ✅ Tests H2 | 8 clases de test concretas (+ `PruebaBase`), 64 pruebas, 0 fallos; Cognito simulado |
-| 30% Code Coverage | ✅ Cumplido | JaCoCo 0.8.16: 71,79% de líneas; `prepare-agent` + `report` (test) + `check` (verify, mín. 0.30) |
+| Unit Tests | ✅ Tests H2 | 9 clases de test concretas (+ `PruebaBase`), 69 pruebas, 0 fallos; Cognito simulado |
+| 30% Code Coverage | ✅ Cumplido | JaCoCo 0.8.16: 72,6% de líneas; `prepare-agent` + `report` (test) + `check` (verify, mín. 0.30) |
 
 ---
 
@@ -158,7 +158,7 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
   - `src/main/java/com/backendapp/demo/service/ReporteService.java` (filtrado FINALIZADO)
   - `src/main/java/com/backendapp/demo/repository/ProyectoRepository.java` (`findByEstadoNot`)
   - `src/main/java/com/backendapp/demo/domain/Proyecto.java` (`@Setter`)
-  - `src/test/java/com/backendapp/demo/CursoTest.java` (17 pruebas)
+  - `src/test/java/com/backendapp/demo/CursoTest.java` (22 pruebas)
 - **Contrato/Notas:**
   - `GET /api/cursos` — listar cursos activos (autenticado).
   - `GET /api/cursos/{id}` — detalle de un curso (autenticado).
@@ -206,7 +206,7 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 
 ## 4. Endpoints del Backend (Resumen)
 
-> Listado completo y verificado de los 24 endpoints en [`ALCANCE.md` §3](ALCANCE.md).
+> Listado completo y verificado de los 25 endpoints en [`ALCANCE.md` §3](ALCANCE.md).
 > **No existen** `/api/sync/confirmar-registro` ni `/api/reportes/proyecto/{id}`.
 
 ### Endpoints existentes (pre-existentes)
@@ -258,8 +258,8 @@ SyncPass es una plataforma de gestión de eventos comunitarios con check-in por 
 | Usuarios CRUD | ✅ Completado | `UsuarioTest.java` |
 | Seguridad (roles) | ✅ Completado | `SeguridadTest.java` |
 | Notificaciones Push (FCM) | ⏳ Parcial / backlog | Código de token/manual/scheduler; historial devuelve `[]`; sin tests dedicados |
-| CRUD Cursos | ✅ Código + tests H2 | `CursoTest.java` (17 pruebas) |
-| **Total pruebas** | **64 pruebas, 0 fallos (tests H2)** | `.\mvnw.cmd verify` → BUILD SUCCESS; JaCoCo 71,79% líneas |
+| CRUD Cursos | ✅ Código + tests H2 | `CursoTest.java` (22 pruebas) |
+| **Total pruebas** | **69 pruebas, 0 fallos (tests H2)** | `.\mvnw.cmd verify` → BUILD SUCCESS; JaCoCo 72,59% líneas |
 
 **Leyenda de estado (REPO-BE):** ✅ código + tests H2 · 🛠️ código/scripts listos, nube no verificada ·
 ⏳ parcial/backlog. Las pruebas usan H2 y Cognito simulado: **no** prueban conectividad con AWS ni Supabase.
@@ -310,7 +310,7 @@ El login móvil se documentó históricamente como E2E; catálogo/sync/reportes 
 
 ### Testing y cobertura (EVA-3 §1.2.C)
 
-- [x] **Reporte JaCoCo** — `jacoco-maven-plugin` 0.8.16 en `pom.xml`: `prepare-agent`, `report` en `test` y `check` en `verify` (mínimo 0.30 de líneas). Resultado real: **71,79%** (855 cubiertas / 1191). Reporte: `target/site/jacoco/index.html` y `target/site/jacoco/jacoco.xml`.
+- [x] **Reporte JaCoCo** — `jacoco-maven-plugin` 0.8.16 en `pom.xml`: `prepare-agent`, `report` en `test` y `check` en `verify` (mínimo 0.30 de líneas). Resultado real: **72,59%** (887 cubiertas / 1222). Reporte: `target/site/jacoco/index.html` y `target/site/jacoco/jacoco.xml`.
 - [ ] **Pruebas de notificaciones** — Backlog (alcance parcial; no rehacer notificaciones).
 
 ### Despliegue (EVA-3 §1.1.A) — no verificado en esta revisión

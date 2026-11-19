@@ -35,7 +35,7 @@ Perfiles: **Estudiante**, **Docente**, **Voluntario**, **Administrador** (opcion
 ## 3. Estado actual (lo que YA está hecho)
 
 ### Código
-- ✅ 24 endpoints REST (`/api/auth/*`, `/api/sync/*`, `/api/cursos`, `/api/usuarios`, `/api/eventos`, `/api/reportes`, `/api/notifications`, `/api/health`).
+- ✅ 25 endpoints REST (`/api/auth/*`, `/api/sync/*`, `/api/cursos`, `/api/usuarios`, `/api/eventos`, `/api/reportes`, `/api/notifications`, `/api/health`).
 - ✅ Autenticación Cognito real (login, registro, confirmación, reenvío de código).
 - ✅ Sincronización offline idempotente (`SyncService`: catálogo, asistencias y encuestas por lotes de hasta 500, UUID, duplicados, rechazos individuales).
 - ✅ Roles: `ADMINISTRADOR`, `COORDINADOR`, `VOLUNTARIO`, `BENEFICIARIO` (equivalencias documentadas; no roles literales `ESTUDIANTE`/`DOCENTE`).
@@ -43,8 +43,8 @@ Perfiles: **Estudiante**, **Docente**, **Voluntario**, **Administrador** (opcion
 - ✅ Scripts de despliegue EC2 completos (`deploy/deploy.ps1`, `cognito-setup.ps1`, `parameter-store.ps1`, nginx, systemd, HTTPS).
 
 ### Tests
-- ✅ **64 tests JVM**, 0 fallos (integración Spring + H2 + Cognito simulado).
-- ✅ **JaCoCo 71.79 %** de cobertura (umbral 30 % cumplido).
+- ✅ **69 tests JVM**, 0 fallos (integración Spring + H2 + Cognito simulado).
+- ✅ **JaCoCo 72,59 %** de cobertura de líneas (umbral 30 % cumplido).
 - ✅ Reporte en `target/site/jacoco/index.html`.
 
 ### Documentación
@@ -195,7 +195,7 @@ Por defecto `application.properties` apunta a PostgreSQL local (`localhost:5432`
 ## 11. Notas importantes
 
 - **Secretos:** nunca commitear `.env` ni credenciales. El `.gitignore` ya protege `.env`, `*.pem`, `*.key`, etc. El `.env.example` es la plantilla.
-- **Cobertura:** 64 tests, 71.79 % JaCoCo. Reporte en `target/site/jacoco/index.html`.
+- **Cobertura:** 69 tests, 72,59 % de líneas (JaCoCo). Reporte en `target/site/jacoco/index.html`.
 - **No hay API Gateway desplegado:** nginx actúa como reverse proxy. API Gateway es opcional en la rúbrica.
 - **No hay geolocalización** en la app móvil (backlog).
 - **Datos semilla:** `SYNCPASS_DATOS_SEMILLA=true` por defecto; desactivar en producción.

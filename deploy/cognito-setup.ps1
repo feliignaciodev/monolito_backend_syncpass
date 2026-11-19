@@ -49,11 +49,17 @@ if (-not $UserPoolId) {
             --alias-attributes email `
             --username-configuration CaseSensitive=false `
             --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=false,RequireLowercase=false,RequireNumbers=false,RequireSymbols=false}" `
-            --admin-create-user-config AllowAdminCreateUserOnly=true `
+            --admin-create-user-config AllowAdminCreateUserOnly=false `
             --query UserPool.Id --output text
         Write-Host "==> User Pool creado: $UserPoolId"
     }
 }
+
+# POST /api/auth/registro usa SignUp() publico: el pool NO puede ser solo-admin.
+# Se aplica tambien si el pool ya existia, porque este script es idempotente.
+Invoke-Aws cognito-idp update-user-pool --region $Region --user-pool-id $UserPoolId `
+    --admin-create-user-config AllowAdminCreateUserOnly=false | Out-Null
+Write-Host "==> Auto-registro publico habilitado en el User Pool"
 
 # 2) App Client publico (sin secreto) con login por usuario/contrasena
 $ClientId = Invoke-Aws cognito-idp list-user-pool-clients --region $Region --user-pool-id $UserPoolId `

@@ -12,7 +12,7 @@ Backend monolitico modular para SyncPass: la app Android que reemplaza las plani
 | Componente | Tecnologia / estado |
 |---|---|
 | Backend | Java 21, Spring Boot 4.1.1, Maven |
-| API | REST bajo `/api`, **mismo contrato que la app Android** (repo `syncpass-movil`; 24 endpoints, ver `docs/ALCANCE.md` §3) |
+| API | REST bajo `/api`, **mismo contrato que la app Android** (repo `syncpass-movil`; 25 endpoints, ver `docs/ALCANCE.md` §3) |
 | Identidad | Amazon Cognito User Pool (usuarios, contrasenas y grupos = roles) |
 | Persistencia | PostgreSQL de Supabase mediante JDBC/JPA |
 | Migraciones | Flyway (V1 usuarios/roles, V2 dominio; V3 de notificaciones preparada); Hibernate `ddl-auto=validate` |
@@ -41,7 +41,7 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 |---|---|---|
 | GET | `/api/health`, `/actuator/health` | publico |
 | POST | `/api/auth/login` | publico |
-| POST | `/api/auth/registro` (`{nombre, email, password}` → 201), `/api/auth/registro/confirmar` (`{email, codigo}` → 204), `/api/auth/registro/reenviar-codigo` (`{email}` → 204) | publico |
+| POST | `/api/auth/registro` (`{nombre, email, telefono, password}` → 201; `telefono` en formato E.164, ej. `+56912345678`), `/api/auth/registro/confirmar` (`{email, codigo}` → 204), `/api/auth/registro/reenviar-codigo` (`{email}` → 204) | publico |
 | GET | `/api/me` | autenticado |
 | GET | `/api/sync/catalogo` | autenticado |
 | POST | `/api/sync/asistencias`, `/api/sync/encuestas` | autenticado (lotes de max. 500) |

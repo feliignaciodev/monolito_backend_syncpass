@@ -158,7 +158,7 @@ Un solo comando desde tu PC:
 ```
 
 Hace, en orden:
-1. Compila y ejecuta las 64 pruebas (H2 + Cognito simulado). Si alguna falla, no despliega.
+1. Compila y ejecuta las 69 pruebas (H2 + Cognito simulado). Si alguna falla, no despliega.
 2. Sube `deploy/server/` y ejecuta `setup-server.sh`: Java 21, nginx, usuario `syncpass`, swap, servicio systemd y verificación de Parameter Store.
 3. Sube el JAR, reinicia el servicio y espera a que `/api/health` responda.
 
