@@ -1,8 +1,10 @@
 package com.backendapp.demo.service;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,10 @@ public class CursoService {
 
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ISO_LOCAL_DATE;
 
+    static final String MENSAJE_FECHAS = "La fecha de término no puede ser anterior a la fecha de inicio";
+
+    static final int MAXIMO_RECIENTES = 12;
+
     private final ProyectoRepository proyectoRepository;
 
     public CursoService(ProyectoRepository proyectoRepository) {
@@ -31,6 +37,16 @@ public class CursoService {
     @Transactional(readOnly = true)
     public List<CursoResponse> listar() {
         return proyectoRepository.findByEstadoNot(EstadoProyecto.FINALIZADO).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /** Publico (portada web): los ultimos cursos activos creados, del mas nuevo al mas antiguo. Limite 1..12. */
+    @Transactional(readOnly = true)
+    public List<CursoResponse> recientes(int limite) {
+        int cantidad = Math.clamp(limite, 1, MAXIMO_RECIENTES);
+        return proyectoRepository
+                .findByEstadoNotOrderByIdDesc(EstadoProyecto.FINALIZADO, PageRequest.of(0, cantidad)).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -47,10 +63,11 @@ public class CursoService {
     @Transactional
     public CursoResponse crear(CursoCreateRequest request) {
         EstadoProyecto estado = parseEstado(request.estado());
+        validarFechas(request.fechaInicio(), request.fechaTermino());
 
         Proyecto proyecto = new Proyecto(
                 request.titulo().trim(),
-                request.descripcion(),
+                textoOpcional(request.descripcion()),
                 request.areaTematica().trim(),
                 request.unidadVecinal().trim(),
                 request.fechaInicio(),
@@ -67,11 +84,17 @@ public class CursoService {
         Proyecto proyecto = proyectoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Curso no encontrado"));
 
+        // El orden de las fechas se valida sobre el resultado final (lo enviado + lo que se conserva)
+        validarFechas(
+                request.fechaInicio() != null ? request.fechaInicio() : proyecto.getFechaInicio(),
+                request.fechaTermino() != null ? request.fechaTermino() : proyecto.getFechaTermino());
+
         if (request.titulo() != null) {
             proyecto.setTitulo(request.titulo().trim());
         }
         if (request.descripcion() != null) {
-            proyecto.setDescripcion(request.descripcion());
+            // Una descripcion vacia la elimina
+            proyecto.setDescripcion(textoOpcional(request.descripcion()));
         }
         if (request.areaTematica() != null) {
             proyecto.setAreaTematica(request.areaTematica().trim());
@@ -106,6 +129,16 @@ public class CursoService {
         proyecto.setEstado(EstadoProyecto.FINALIZADO);
         proyectoRepository.save(proyecto);
         return toResponse(proyecto);
+    }
+
+    private static void validarFechas(LocalDate inicio, LocalDate termino) {
+        if (termino.isBefore(inicio)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MENSAJE_FECHAS);
+        }
+    }
+
+    private static String textoOpcional(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     private static EstadoProyecto parseEstado(String valor) {

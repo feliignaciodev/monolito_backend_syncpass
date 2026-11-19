@@ -132,7 +132,8 @@ class CursoTest extends PruebaBase {
                         .with(token("sub-vol", "VOLUNTARIO"))
                         .contentType(JSON)
                         .content(body))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Acceso restringido: se requiere rol ADMINISTRADOR"));
     }
 
     @Test
@@ -214,7 +215,8 @@ class CursoTest extends PruebaBase {
                         .with(token("sub-vol", "VOLUNTARIO"))
                         .contentType(JSON)
                         .content(body))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Acceso restringido: se requiere rol ADMINISTRADOR"));
     }
 
     @Test
@@ -344,5 +346,107 @@ class CursoTest extends PruebaBase {
     void sinTokenResponde401() throws Exception {
         mockMvc.perform(get("/api/cursos"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /** Crea un curso como ADMINISTRADOR y devuelve su id. */
+    private Long crearCurso(String titulo, String inicio, String termino) throws Exception {
+        String body = """
+                {
+                  "titulo": "%s",
+                  "descripcion": "Descripcion inicial",
+                  "areaTematica": "Test",
+                  "unidadVecinal": "UV 01",
+                  "fechaInicio": "%s",
+                  "fechaTermino": "%s",
+                  "estado": "PLANIFICADO"
+                }
+                """.formatted(titulo, inicio, termino);
+        return extraerId(mockMvc.perform(post("/api/cursos")
+                        .with(token("sub-admin", "ADMINISTRADOR"))
+                        .contentType(JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn());
+    }
+
+    @Test
+    void recientesEsPublicoYDevuelveDelMasNuevoAlMasAntiguo() throws Exception {
+        Long primero = crearCurso("Reciente A", "2026-03-01", "2026-04-01");
+        Long segundo = crearCurso("Reciente B", "2026-01-01", "2026-02-01");
+
+        // Sin token: lo consume la portada publica de la web
+        mockMvc.perform(get("/api/cursos/recientes").param("limite", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(segundo))
+                .andExpect(jsonPath("$[1].id").value(primero));
+    }
+
+    @Test
+    void recientesAcotaElLimiteYExcluyeFinalizados() throws Exception {
+        Long id = crearCurso("Reciente finalizado", "2026-01-01", "2026-02-01");
+        mockMvc.perform(patch("/api/cursos/" + id + "/desactivar").with(token("sub-admin", "ADMINISTRADOR")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/cursos/recientes").param("limite", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+        mockMvc.perform(get("/api/cursos/recientes").param("limite", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(org.hamcrest.Matchers.lessThanOrEqualTo(12)))
+                .andExpect(jsonPath("$[?(@.id == " + id + ")]").doesNotExist());
+    }
+
+    @Test
+    void crearConFechaDeTerminoAnteriorResponde400() throws Exception {
+        String body = """
+                {
+                  "titulo": "Fechas invertidas",
+                  "areaTematica": "Test",
+                  "unidadVecinal": "UV 01",
+                  "fechaInicio": "2026-06-30",
+                  "fechaTermino": "2026-01-01",
+                  "estado": "PLANIFICADO"
+                }
+                """;
+        mockMvc.perform(post("/api/cursos")
+                        .with(token("sub-admin", "ADMINISTRADOR"))
+                        .contentType(JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error")
+                        .value("La fecha de término no puede ser anterior a la fecha de inicio"));
+    }
+
+    @Test
+    void editarDejandoFechasInvertidasResponde400YNoCambiaNada() throws Exception {
+        Long id = crearCurso("Fechas al editar", "2026-03-01", "2026-06-30");
+
+        // Solo se envia el termino: se compara contra el inicio que ya tenia el curso
+        mockMvc.perform(put("/api/cursos/" + id)
+                        .with(token("sub-admin", "ADMINISTRADOR"))
+                        .contentType(JSON)
+                        .content("{\"titulo\": \"No debe guardarse\", \"fechaTermino\": \"2026-02-01\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error")
+                        .value("La fecha de término no puede ser anterior a la fecha de inicio"));
+
+        mockMvc.perform(get("/api/cursos/" + id).with(token("sub-x", "VOLUNTARIO")))
+                .andExpect(jsonPath("$.titulo").value("Fechas al editar"))
+                .andExpect(jsonPath("$.fechaTermino").value("2026-06-30"));
+    }
+
+    @Test
+    void editarConDescripcionVaciaLaEliminaYConservaLoNoEnviado() throws Exception {
+        Long id = crearCurso("Descripcion borrable", "2026-03-01", "2026-06-30");
+
+        mockMvc.perform(put("/api/cursos/" + id)
+                        .with(token("sub-admin", "ADMINISTRADOR"))
+                        .contentType(JSON)
+                        .content("{\"descripcion\": \"  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.descripcion").doesNotExist())
+                .andExpect(jsonPath("$.titulo").value("Descripcion borrable"))
+                .andExpect(jsonPath("$.fechaInicio").value("2026-03-01"));
     }
 }

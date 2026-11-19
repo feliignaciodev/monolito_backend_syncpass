@@ -72,6 +72,8 @@ public class SecurityConfiguration {
  					.requestMatchers("/api/usuarios/**").hasRole(Rol.ADMINISTRADOR)
   				.requestMatchers(HttpMethod.POST, "/api/notifications/manual").hasRole(Rol.ADMINISTRADOR)
   					.requestMatchers(HttpMethod.GET, "/api/notifications/historial").hasRole(Rol.ADMINISTRADOR)
+						// Portada publica de la web: solo los ultimos cursos activos, sin datos personales
+						.requestMatchers(HttpMethod.GET, "/api/cursos/recientes").permitAll()
   					.requestMatchers(HttpMethod.POST, "/api/cursos").hasRole(Rol.ADMINISTRADOR)
   					.requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasRole(Rol.ADMINISTRADOR)
   					.requestMatchers(HttpMethod.PATCH, "/api/cursos/**").hasRole(Rol.ADMINISTRADOR)
@@ -146,7 +148,10 @@ public class SecurityConfiguration {
 
 	private static AccessDeniedHandler accesoDenegado() {
 		return (request, response, exception) -> {
-			String rol = request.getRequestURI().startsWith("/api/usuarios") ? Rol.ADMINISTRADOR : Rol.COORDINADOR;
+			String uri = request.getRequestURI();
+			// Usuarios, cursos y notificaciones solo los gestiona ADMINISTRADOR; metricas y reportes, COORDINADOR o mas
+			String rol = uri.startsWith("/api/usuarios") || uri.startsWith("/api/cursos")
+					|| uri.startsWith("/api/notifications") ? Rol.ADMINISTRADOR : Rol.COORDINADOR;
 			escribirError(response, HttpStatus.FORBIDDEN, "Acceso restringido: se requiere rol " + rol);
 		};
 	}
