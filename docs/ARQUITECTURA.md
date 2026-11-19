@@ -149,7 +149,7 @@ flowchart TB
 | Capacidad | Estado honesto |
 |---|---|
 | Código Spring Boot, contrato REST, reglas de seguridad | **Código** |
-| 64 tests, 0 fallos, JaCoCo ≥ 30% (71,79% líneas) | **Tests H2** (Cognito simulado; sin AWS/Supabase reales) |
+| 69 tests, 0 fallos, JaCoCo ≥ 30% (72,6 % líneas) | **Tests H2** (Cognito simulado; sin AWS/Supabase reales) |
 | Scripts EC2 / nginx / HTTPS / Parameter Store / IAM | **Código → Nube (no verificada en esta revisión)** |
 | Login móvil con cuenta real | **E2E Android** (documentado históricamente; no reproducido en esta revisión) |
 | Catálogo + sync + reportes desde la app | **E2E Android pendiente** |
@@ -162,8 +162,9 @@ flowchart TB
 
 ## 3. C3 — Componentes: arquitectura MVVM de la app Android
 
-C3 se enfoca en la app (`C:\Src\syncpass-movil`, paquete `com.example.syncpassapp`, Kotlin + Jetpack
-Compose + Hilt). El backend expone REST/JSON; la app organiza sus capas así:
+C3 se enfoca en la app (repo `syncpass-movil`, paquete `com.example.syncpassapp`, Kotlin + Jetpack
+Compose + Hilt). El backend expone REST/JSON; la app organiza sus capas así (detalle completo en
+`docs/ARQUITECTURA.md` del repo móvil):
 
 ```mermaid
 flowchart TB
@@ -171,18 +172,27 @@ flowchart TB
         S1[LoginScreen / RegisterScreen]
         S2[StudentHomeScreen / StudentQuestionnaireScreen]
         S3[TeacherHomeScreen / SessionScreen / SessionDetailScreen]
+        S4[ProfileScreen + DialogRegistrarAsistenciaOffline]
     end
 
     subgraph VM["VIEWMODEL · StateFlow / UiState (Hilt)"]
         VM1[LoginViewModel / RegisterViewModel / SesionViewModel]
         VM2[StudentHomeViewModel / StudentQuestionnaireViewModel]
         VM3[TeacherHomeViewModel / SessionViewModel / SessionDetailViewModel]
+        VM4[ProfileViewModel / SyncViewModel]
     end
 
     subgraph REPO["MODEL · Repositorios"]
         R1[AuthRepository]
         R2[SyncRepository]
         R3[UniversidadRepository]
+        R4[NotificacionesRepository]
+    end
+
+    subgraph DSRC["MODEL · DataSources"]
+        D1[AuthRemoteDataSource · SesionLocalDataSource]
+        D2[SyncRemoteDataSource · SyncLocalDataSource]
+        D3[UniversidadLocalDataSource]
     end
 
     subgraph LOCAL["MODEL · Local (offline)"]
@@ -196,25 +206,35 @@ flowchart TB
     end
 
     S1 --> VM1 --> R1
-    S2 --> VM2 --> R2
+    S2 --> VM2 --> R3
     S3 --> VM3 --> R3
-    R1 --> DS
-    R1 --> API
-    R2 --> ROOM
-    R2 --> API
-    R3 --> ROOM
+    S4 --> VM4 --> R2
+    VM1 --> R4
+    R1 --> D1
+    R2 --> D2
+    R3 --> D3
+    D1 --> DS
+    D1 --> API
+    D2 --> ROOM
+    D2 --> API
+    D3 --> ROOM
     API --> INT
 ```
 
-**Capas y responsive de responsabilidades:**
+**Capas y responsabilidades:**
 
 | Capa | Clases reales (repo móvil) | Responsabilidad |
 |---|---|---|
 | View (Screens) | `feature/*/ui/*Screen.kt`, `core/designsystem/components/*` | Componer UI, observar `StateFlow`, disparar eventos del ViewModel. |
-| ViewModel | `*ViewModel.kt` (`@HiltViewModel`), `uiState: StateFlow<*UiState>` | Lógica de presentación; expone estado inmutable; **solo** habla con repositorios. |
-| Repositorios | `core/database/repository/SyncRepository.kt`, `UniversidadRepository.kt`, `feature/auth/data/AuthRepository.kt` | Única puerta de entrada al dato: coordina Room (local) y Retrofit (remoto). |
-| Local | `core/database/local/database/AppDatabase.kt` (Room v3, `SyncPassDao`, `UniversidadDao`), `core/datastore/TokenDataStore.kt` | Caché del catálogo, cola de asistencias/encuestas pendientes, tokens de sesión. |
+| ViewModel | `*ViewModel.kt` (`@HiltViewModel`), `uiState: StateFlow<*UiState>` | Lógica de presentación; expone estado inmutable; **solo** depende de repositorios (ninguno recibe DAO, API ni `Context`). |
+| Repositorios | `core/database/repository/SyncRepository.kt`, `UniversidadRepository.kt`, `feature/auth/data/AuthRepository.kt`, `feature/notificaciones/data/NotificacionesRepository.kt` | Reglas de negocio y coordinación local/remoto (offline-first); trabajan contra los datasources. |
+| DataSources | `core/datasource/local/{SyncLocalDataSource,UniversidadLocalDataSource,SesionLocalDataSource}.kt`, `core/datasource/remote/{SyncRemoteDataSource,AuthRemoteDataSource}.kt` | Únicas clases que usan DAOs, APIs de Retrofit y DataStore. |
+| Local | `core/database/local/database/AppDatabase.kt` (Room v3, `SyncPassDao`, `UniversidadDao`), `core/datastore/TokenDataStore.kt` | Caché del catálogo, cola de asistencias/encuestas pendientes, token de sesión. |
 | Remote | `core/network/remote/{AuthApi,SyncApi,EventoApi,UsuarioApi}.kt`, `TokenInterceptor`, `TokenAuthenticator` | Llamadas HTTP al backend; interceptor inyecta `Authorization: Bearer`. |
+
+**Roles en la app:** `core/common/auth/Rol` traduce los grupos de Cognito a los perfiles de la rúbrica
+(BENEFICIARIO → Estudiante, COORDINADOR → Docente, VOLUNTARIO → Voluntario, ADMINISTRADOR →
+Administrador); Docente, Voluntario y Administrador entran al inicio docente.
 
 **Coherencia con el backend:**
 

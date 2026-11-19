@@ -24,7 +24,7 @@
 | RF-09 | Métricas en vivo por evento (inscritos, asistentes, quorum, encuestas, promedios, última marcación). | Implementado |
 | RF-10 | Reportes para cierre: resumen por proyecto y exportación CSV de asistencias. | Implementado |
 | RF-11 | Gestión de usuarios (listar, obtener, crear, activar/desactivar) con compensación Cognito ↔ PostgreSQL. | Implementado (ADMINISTRADOR) |
-| RF-12 | CRUD de cursos/proyectos (listar, detalle, crear, editar, desactivar). | Implementado |
+| RF-12 | CRUD de cursos/proyectos (listar, detalle, crear, editar, desactivar), con validación fecha de término ≥ fecha de inicio y listado público de los más recientes. | Implementado |
 | RF-13 | Health check público de la API y del actuator. | Implementado |
 | RF-14 | Registro del token FCM del dispositivo del usuario autenticado. | Parcial (código; E2E pendiente) |
 | RF-15 | Envío manual de notificaciones por roles. | Parcial (código; credenciales/E2E pendientes) |
@@ -54,7 +54,7 @@
 
 ---
 
-## 3. Endpoints reales (24)
+## 3. Endpoints reales (25)
 
 | # | Método | Ruta | Acceso | Servicio |
 |---|---|---|---|---|
@@ -79,12 +79,13 @@
 | 19 | POST | `/api/cursos` | ADMINISTRADOR | `CursoService` |
 | 20 | PUT | `/api/cursos/{id}` | ADMINISTRADOR | `CursoService` |
 | 21 | PATCH | `/api/cursos/{id}/desactivar` | ADMINISTRADOR | `CursoService` |
-| 22 | POST | `/api/notifications/token` | autenticado | `NotificationService` |
-| 23 | POST | `/api/notifications/manual` | ADMINISTRADOR | `NotificationService` |
-| 24 | GET | `/api/notifications/historial` | ADMINISTRADOR | `NotificationController` (devuelve `[]`) |
+| 22 | GET | `/api/cursos/recientes?limite=3` | público | `CursoService` (activos, del más nuevo al más antiguo; lo usa el inicio de la web) |
+| 23 | POST | `/api/notifications/token` | autenticado | `NotificationService` |
+| 24 | POST | `/api/notifications/manual` | ADMINISTRADOR | `NotificationService` |
+| 25 | GET | `/api/notifications/historial` | ADMINISTRADOR | `NotificationController` (devuelve `[]`) |
 
-> Nota: los 24 son los *handler methods* de los 9 controladores `@RestController`. `/actuator/health`
-> es un endpoint adicional aportado por el framework Actuator (no cuenta en los 24). El historial de
+> Nota: los 25 son los *handler methods* de los 9 controladores `@RestController`. `/actuator/health`
+> es un endpoint adicional aportado por el framework Actuator (no cuenta en los 25). El historial de
 > notificaciones existe como ruta pero devuelve `[]` (backlog).
 
 ---
@@ -157,6 +158,9 @@
 - **Flujo:** `GET /api/cursos` y `GET /{id}` para cualquier autenticado; crear/editar/desactivar solo
   ADMINISTRADOR. Desactivar cambia el estado a `FINALIZADO`, por lo que el curso deja de aparecer en
   `GET /api/sync/catalogo` y en reportes.
+- **Alternos:** fecha de término anterior a la de inicio → 400 con mensaje (al crear y al editar); un
+  usuario sin rol ADMINISTRADOR que intenta escribir → 403 "se requiere rol ADMINISTRADOR".
+  `GET /api/cursos/recientes?limite=3` es público (inicio de la web).
 
 ### CU-11 — Notificaciones (RF-14 a RF-16, **parcial / backlog**)
 - **Código presente:** `POST /api/notifications/token` (registra FCM token),
@@ -216,7 +220,7 @@ backend: se solicita un nuevo login.
 | RF-16 | `GET /api/notifications/historial` | `NotificationController` (devuelve `[]`) | **Sin test dedicado** (backlog) |
 | RF-17 a RF-21 | No existen / fuera de alcance | — | — |
 
-**Cobertura:** 64 tests, 0 fallos; JaCoCo 71,79% de líneas (≥ 30% exigido). Reporte en
+**Cobertura:** 69 tests, 0 fallos; JaCoCo 72,6 % de líneas (≥ 30% exigido). Reporte en
 `target/site/jacoco/index.html` y `target/site/jacoco/jacoco.xml`.
 
 ---

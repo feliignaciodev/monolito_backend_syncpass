@@ -31,8 +31,8 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 - Gestion de usuarios (Cognito + perfil local) solo para administrador, con compensacion si falla la base.
 - Errores siempre `{"error": "mensaje"}` (400/401/403/404/409/502).
 - Datos semilla 100 % ficticios (3 proyectos, 6 eventos, 42 participantes) si la base no tiene proyectos.
-- 64 pruebas automaticas (H2 + Cognito simulado; no prueban conectividad cloud).
-- Cobertura JaCoCo 71,79 % de lineas (minimo exigido 30 %): `target/site/jacoco/index.html`.
+- 69 pruebas automaticas (H2 + Cognito simulado; no prueban conectividad cloud).
+- Cobertura JaCoCo 72,6 % de lineas (minimo exigido 30 %): `target/site/jacoco/index.html`.
 - Notificaciones push: **alcance parcial / backlog** (token y envio manual con codigo; historial devuelve `[]`, sin credenciales FCM de produccion ni tests dedicados). No rehacer notificaciones.
 
 ### Endpoints
@@ -56,7 +56,7 @@ Cognito administra contrasenas e identidad. PostgreSQL guarda el perfil y los da
 | Categoria | Estado |
 |---|---|
 | **Código** | API REST, seguridad JWT/RBAC, sync offline idempotente, reportes, usuarios y cursos implementados. Ver `docs/ARQUITECTURA.md` y `docs/ALCANCE.md`. |
-| **Tests H2** | `.\mvnw.cmd verify` → **64 pruebas, 0 fallos**, BUILD SUCCESS; JaCoCo **71,79 %** de líneas. Usan H2 + Cognito simulado: **no** prueban AWS ni Supabase reales. |
+| **Tests H2** | `.\mvnw.cmd verify` → **69 pruebas, 0 fallos**, BUILD SUCCESS; JaCoCo **72,6 %** de líneas. Usan H2 + Cognito simulado: **no** prueban AWS ni Supabase reales. |
 | **Nube (no verificada)** | Código y scripts de Supabase / EC2 / nginx / Parameter Store / Cognito preparados. Históricamente se documentó un proyecto Supabase y la aplicación de Flyway V1/V2, así como una comprobación HTTPS el 30-10-2026; **la disponibilidad actual NO fue verificada en esta revisión**. No se declaran requisitos cloud cumplidos. |
 | **Desplegado** | Existen los scripts (`deploy/`) para publicar en EC2; no se afirma una instancia activa verificada. **No hay API Gateway desplegado**; nginx actúa como proxy inverso. |
 | **E2E Android** | Se documentó históricamente el login móvil con una cuenta real; catálogo, sincronización y reportes desde la app siguen **pendientes** de verificar. |
