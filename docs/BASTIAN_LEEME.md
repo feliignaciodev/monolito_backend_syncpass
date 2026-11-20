@@ -58,6 +58,8 @@ Perfiles: **Estudiante**, **Docente**, **Voluntario**, **Administrador** (opcion
 
 ## 4. Lo que FALTA (backlog priorizado)
 
+> **Estado actualizado al 19-11-2026 (noche): ver [`PENDIENTES.md`](./PENDIENTES.md)**, con lo que falta para cerrar la entrega, los pasos y su responsable.
+
 ### 🔴 Alta prioridad (bloquea la nota o la defensa)
 1. **Verificación real de Supabase + EC2 + Cognito + E2E** — el código está listo pero **no se ha probado en vivo**. Hay que desplegar y capturar evidencia (health check, login real, sync de un lote, screenshot de Supabase).
 2. **Commit/push del trabajo pendiente** — hay 11 archivos modificados + 21 untracked (cursos, FCM, V3, tests). Si se despliega desde Git sin commitear, no se reproducen. *(Ya se hizo commit en la iteración anterior.)*
