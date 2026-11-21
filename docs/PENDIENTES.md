@@ -52,7 +52,7 @@ Pruebas: web 84 / 65.4 % líneas — móvil 84 / 50.0 % (JaCoCo) — backend 69 
 ## 2. Lo que queda pendiente (no bloquea la nota)
 
 ### Media prioridad
-1. **Notificaciones completas** — historial devuelve `[]`, recordatorios pueden duplicarse, FCM sin credenciales provisionadas.
+1. **Notificaciones** — historial ahora persiste y devuelve registros reales. Scheduler corregido (dedup por evento+tipo, ventanas no solapadas). FCM sigue sin credenciales provisionadas (log warning + retorna false).
 2. **Refresh de token** — no hay endpoint `/api/auth/refresh`.
 3. **Roles literales `ESTUDIANTE`/`DOCENTE`** — si el docente los exige (cambio amplio).
 4. **Unificar sync con `SessionScreen`/`ClaseEntity`** — hoy el registro offline usa el catálogo remoto (Perfil), no las clases locales.
