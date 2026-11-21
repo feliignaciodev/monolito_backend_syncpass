@@ -36,7 +36,7 @@ Cognito administra contraseñas e identidad. PostgreSQL guarda el perfil y los d
 - Datos semilla 100 % ficticios (3 proyectos, 6 eventos, 42 participantes) si la base no tiene proyectos.
 - **69 pruebas automáticas** (H2 + Cognito simulado; no prueban conectividad cloud).
 - **Cobertura JaCoCo 72,6 %** de líneas (mínimo exigido 30 %): `target/site/jacoco/index.html`.
-- Notificaciones push: **alcance parcial / backlog** (token y envío manual con código; historial devuelve `[]`, sin credenciales FCM de producción ni tests dedicados).
+- Notificaciones push: **historial persistido** (`notificacion_historial` + V4). `NotificationController.historial()` devuelve registros reales. Scheduler corregido (dedup por evento+tipo, ventanas no solapadas). FCM sin credenciales de producción (log warning + retorna false). Envío manual a roles o a todos.
 
 ### Endpoints
 
