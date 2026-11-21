@@ -23,7 +23,7 @@ import jakarta.validation.Valid;
 
 /**
  * Gestión de cursos (Proyectos). {@code GET /recientes} es público; el resto de la lectura es para
- * cualquier usuario autenticado y la escritura solo ADMINISTRADOR.
+ * cualquier usuario autenticado y la escritura para ADMINISTRADOR y COORDINADOR.
  */
 @RestController
 @RequestMapping("/api/cursos")

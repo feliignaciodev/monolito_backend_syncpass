@@ -17,7 +17,7 @@ import com.backendapp.demo.dto.CursoResponse;
 import com.backendapp.demo.dto.CursoUpdateRequest;
 import com.backendapp.demo.repository.ProyectoRepository;
 
-/** CRUD de cursos (Proyectos). Solo ADMINISTRADOR puede crear, editar y desactivar. */
+/** CRUD de cursos (Proyectos). ADMINISTRADOR y COORDINADOR pueden crear, editar y desactivar. */
 @Service
 public class CursoService {
 
@@ -59,7 +59,7 @@ public class CursoService {
         return toResponse(proyecto);
     }
 
-    /** Crea un nuevo curso. Solo ADMINISTRADOR. */
+    /** Crea un nuevo curso. ADMINISTRADOR y COORDINADOR. */
     @Transactional
     public CursoResponse crear(CursoCreateRequest request) {
         EstadoProyecto estado = parseEstado(request.estado());
@@ -78,7 +78,7 @@ public class CursoService {
         return toResponse(proyecto);
     }
 
-    /** Edita un curso existente. Solo ADMINISTRADOR. Campos nulos se ignoran. */
+    /** Edita un curso existente. ADMINISTRADOR y COORDINADOR. Campos nulos se ignoran. */
     @Transactional
     public CursoResponse editar(Long id, CursoUpdateRequest request) {
         Proyecto proyecto = proyectoRepository.findById(id)
@@ -116,7 +116,7 @@ public class CursoService {
         return toResponse(proyecto);
     }
 
-    /** Desactiva un curso cambiando su estado a FINALIZADO. Solo ADMINISTRADOR. */
+    /** Desactiva un curso cambiando su estado a FINALIZADO. ADMINISTRADOR y COORDINADOR. */
     @Transactional
     public CursoResponse desactivar(Long id) {
         Proyecto proyecto = proyectoRepository.findById(id)

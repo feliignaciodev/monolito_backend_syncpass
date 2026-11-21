@@ -137,10 +137,10 @@ class CursoTest extends PruebaBase {
     }
 
     @Test
-    void crearCursoCoordinadorResponde403() throws Exception {
+    void crearCursoCoordinadorResponde201() throws Exception {
         String body = """
                 {
-                  "titulo": "Curso",
+                  "titulo": "Curso coordinador",
                   "areaTematica": "Test",
                   "unidadVecinal": "UV 01",
                   "fechaInicio": "2026-01-01",
@@ -152,7 +152,7 @@ class CursoTest extends PruebaBase {
                         .with(token("sub-coord", "COORDINADOR"))
                         .contentType(JSON)
                         .content(body))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isCreated());
     }
 
     @Test

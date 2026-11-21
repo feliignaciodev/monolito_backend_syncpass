@@ -74,9 +74,9 @@ public class SecurityConfiguration {
   					.requestMatchers(HttpMethod.GET, "/api/notifications/historial").hasRole(Rol.ADMINISTRADOR)
 						// Portada publica de la web: solo los ultimos cursos activos, sin datos personales
 						.requestMatchers(HttpMethod.GET, "/api/cursos/recientes").permitAll()
-  					.requestMatchers(HttpMethod.POST, "/api/cursos").hasRole(Rol.ADMINISTRADOR)
-  					.requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasRole(Rol.ADMINISTRADOR)
-  					.requestMatchers(HttpMethod.PATCH, "/api/cursos/**").hasRole(Rol.ADMINISTRADOR)
+  					.requestMatchers(HttpMethod.POST, "/api/cursos").hasAnyRole(Rol.ADMINISTRADOR, Rol.COORDINADOR)
+  					.requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasAnyRole(Rol.ADMINISTRADOR, Rol.COORDINADOR)
+  					.requestMatchers(HttpMethod.PATCH, "/api/cursos/**").hasAnyRole(Rol.ADMINISTRADOR, Rol.COORDINADOR)
  					.requestMatchers("/api/eventos/*/metricas", "/api/reportes/**")
  							.hasAnyRole(Rol.COORDINADOR, Rol.ADMINISTRADOR)
  					.anyRequest().authenticated())
