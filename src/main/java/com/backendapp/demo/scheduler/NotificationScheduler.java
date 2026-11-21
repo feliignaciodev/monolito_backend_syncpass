@@ -18,6 +18,7 @@ import com.backendapp.demo.service.NotificationService;
 /**
  * Envía recordatorios push antes de los eventos.
  * Se ejecuta cada 15 minutos y busca eventos que comienzan en 1 hora y 1 día.
+ * Evita duplicados: cada recordatorio (1h o 1d) se envía una sola vez por evento.
  */
 @Component
 public class NotificationScheduler {
@@ -46,26 +47,33 @@ public class NotificationScheduler {
 
         long ahora = Instant.now().toEpochMilli();
 
-        // Recordatorio a 1 hora
-        enviarRecordatorioParaVentana(ahora, RECORDATORIO_1HORA_MS, "1 hora",
-            "El evento comienza en 1 hora. ¡Prepárate para asistir!");
+        // Recordatorio a 1 hora: solo eventos que comienzan en menos de 1 hora
+        enviarRecordatorioParaVentana(ahora, 0, RECORDATORIO_1HORA_MS, "1 hora",
+            "El evento comienza en 1 hora. ¡Prepárate para asistir!",
+            "recordatorio_1h");
 
-        // Recordatorio a 1 día
-        enviarRecordatorioParaVentana(ahora, RECORDATORIO_1DIA_MS, "1 día",
-            "El evento comienza mañana. ¡No olvides asistir!");
+        // Recordatorio a 1 día: eventos entre 1 hora y 1 día
+        enviarRecordatorioParaVentana(ahora, RECORDATORIO_1HORA_MS, RECORDATORIO_1DIA_MS, "1 día",
+            "El evento comienza mañana. ¡No olvides asistir!",
+            "recordatorio_1d");
     }
 
-    private void enviarRecordatorioParaVentana(long ahora, long offsetMs, String tiempo, String mensajeCuerpo) {
-        // Buscar eventos que comienzan en [ahora, ahora + offsetMs]
-        long desde = ahora;
-        long hasta = ahora + offsetMs;
+    private void enviarRecordatorioParaVentana(long ahora, long desdeMs, long hastaMs, String tiempo,
+            String mensajeCuerpo, String tipo) {
+        long desde = ahora + desdeMs;
+        long hasta = ahora + hastaMs;
 
         List<Evento> eventos = eventoRepository.findBetween(desde, hasta);
 
         for (Evento evento : eventos) {
+            // Deduplicación: no enviar si ya se envió este tipo de recordatorio para este evento
+            if (notificationService.recordatorioYaEnviado(evento.getId(), tipo)) {
+                log.debug("Recordatorio {} ya enviado para evento {}, omitiendo", tipo, evento.getNombre());
+                continue;
+            }
+
             log.info("Enviando recordatorio de {} para evento: {}", tiempo, evento.getNombre());
 
-            // Obtener participantes inscritos en el evento
             List<Inscripcion> inscripciones = inscripcionRepository.findAllConRelaciones().stream()
                 .filter(i -> i.getEvento().getId().equals(evento.getId()))
                 .filter(i -> i.getEstado() == EstadoInscripcion.INSCRITO)
@@ -74,11 +82,8 @@ public class NotificationScheduler {
             String titulo = "Recordatorio: " + evento.getNombre();
             String cuerpo = mensajeCuerpo + " Recinto: " + evento.getRecinto();
 
-            // Enviar a todos los dispositivos activos
-            // Nota: en una implementación completa, se filtraría por participantes inscritos
-            // mapeando participante -> usuario -> dispositivo_push
             notificationService.enviarATodosConDatos(
-                titulo, cuerpo, "recordatorio", evento.getId().toString()
+                titulo, cuerpo, tipo, evento.getId().toString()
             );
             log.info("Recordatorio enviado para evento {} ({} inscritos)", evento.getNombre(), inscripciones.size());
         }

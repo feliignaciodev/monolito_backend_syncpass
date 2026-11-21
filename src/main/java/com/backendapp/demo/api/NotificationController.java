@@ -81,8 +81,15 @@ public class NotificationController {
      */
     @GetMapping("/historial")
     public List<HistorialItem> historial() {
-        // Por ahora devuelve un historial vacío; se puede implementar con tabla de historial en el futuro
-        return List.of();
+        return notificationService.obtenerHistorial().stream()
+            .map(n -> new HistorialItem(
+                n.getId(),
+                n.getTitulo(),
+                n.getCuerpo(),
+                n.getRoles() == null ? List.of() : List.of(n.getRoles().split(",")),
+                n.getEnviadoEn(),
+                n.getDispositivosEnviados()))
+            .toList();
     }
 
     public record HistorialItem(

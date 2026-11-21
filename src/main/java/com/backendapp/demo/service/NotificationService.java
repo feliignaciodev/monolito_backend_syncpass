@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backendapp.demo.domain.DispositivoPush;
+import com.backendapp.demo.domain.NotificacionHistorial;
 import com.backendapp.demo.domain.Usuario;
 import com.backendapp.demo.repository.DispositivoPushRepository;
+import com.backendapp.demo.repository.NotificacionHistorialRepository;
 import com.backendapp.demo.repository.UsuarioRepository;
 
 @Service
@@ -23,12 +25,15 @@ public class NotificationService {
     private final DispositivoPushRepository dispositivoPushRepository;
     private final UsuarioRepository usuarioRepository;
     private final FcmClient fcmClient;
+    private final NotificacionHistorialRepository historialRepository;
 
     public NotificationService(DispositivoPushRepository dispositivoPushRepository,
-            UsuarioRepository usuarioRepository, FcmClient fcmClient) {
+            UsuarioRepository usuarioRepository, FcmClient fcmClient,
+            NotificacionHistorialRepository historialRepository) {
         this.dispositivoPushRepository = dispositivoPushRepository;
         this.usuarioRepository = usuarioRepository;
         this.fcmClient = fcmClient;
+        this.historialRepository = historialRepository;
     }
 
     /**
@@ -36,10 +41,8 @@ public class NotificationService {
      */
     @Transactional
     public DispositivoPush registrarToken(Long usuarioId, String fcmToken) {
-        // Buscar si ya existe un dispositivo con este token
         return dispositivoPushRepository.findByfcmToken(fcmToken)
             .map(dispositivo -> {
-                // Token existe, actualizar si es del mismo usuario o reasignar
                 dispositivo.setUsuario(usuarioRepository.findById(usuarioId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado")));
                 dispositivo.setActivo(Boolean.TRUE);
@@ -47,7 +50,6 @@ public class NotificationService {
                 return dispositivoPushRepository.save(dispositivo);
             })
             .orElseGet(() -> {
-                // Crear nuevo registro
                 DispositivoPush dispositivo = new DispositivoPush();
                 dispositivo.setFcmToken(fcmToken);
                 dispositivo.setUsuario(usuarioRepository.findById(usuarioId)
@@ -67,7 +69,6 @@ public class NotificationService {
         for (DispositivoPush dispositivo : dispositivos) {
             boolean enviado = fcmClient.sendNotification(dispositivo.getFcmToken(), titulo, cuerpo);
             if (!enviado) {
-                // Marcar token como inactivo si falla
                 marcarInactivo(dispositivo);
             }
         }
@@ -89,47 +90,75 @@ public class NotificationService {
 
     /**
      * Envía una notificación a todos los dispositivos activos (por token).
-     * Útil cuando no hay relación directa usuario-participante.
+     * Persiste el envío en el historial para trazabilidad y deduplicación.
      */
+    @Transactional
     public void enviarATodosConDatos(String titulo, String cuerpo, String tipo, String eventoId) {
         List<DispositivoPush> dispositivos = dispositivoPushRepository.findByActivoTrue();
+        int enviados = 0;
         for (DispositivoPush dispositivo : dispositivos) {
             boolean enviado = fcmClient.sendNotificationWithData(
                 dispositivo.getFcmToken(), titulo, cuerpo, tipo, eventoId);
-            if (!enviado) {
+            if (enviado) {
+                enviados++;
+            } else {
                 marcarInactivo(dispositivo);
             }
         }
+
+        NotificacionHistorial historial = new NotificacionHistorial();
+        historial.setTitulo(titulo);
+        historial.setCuerpo(cuerpo);
+        historial.setRoles(null);
+        historial.setTipo(tipo);
+        historial.setEventoId(eventoId != null ? Long.parseLong(eventoId) : null);
+        historial.setEnviadoEn(LocalDateTime.now());
+        historial.setDispositivosEnviados(enviados);
+        historialRepository.save(historial);
     }
 
     /**
      * Envía una notificación a todos los usuarios con los roles especificados.
      * Si roles es null o vacío, envía a todos los usuarios activos.
+     * Persiste el envío en el historial.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public void enviarPorRoles(String titulo, String cuerpo, List<String> roles) {
         List<DispositivoPush> dispositivos;
         if (roles == null || roles.isEmpty()) {
             dispositivos = dispositivoPushRepository.findByActivoTrue();
         } else {
-            // Obtener usuarios por roles y luego sus dispositivos
             dispositivos = dispositivoPushRepository.findByActivoTrue().stream()
                 .filter(d -> roles.contains(d.getUsuario().getRol().getNombre()))
                 .toList();
         }
 
+        int enviados = 0;
         for (DispositivoPush dispositivo : dispositivos) {
             boolean enviado = fcmClient.sendNotification(dispositivo.getFcmToken(), titulo, cuerpo);
-            if (!enviado) {
+            if (enviado) {
+                enviados++;
+            } else {
                 marcarInactivo(dispositivo);
             }
         }
+
+        NotificacionHistorial historial = new NotificacionHistorial();
+        historial.setTitulo(titulo);
+        historial.setCuerpo(cuerpo);
+        historial.setRoles(roles == null || roles.isEmpty() ? null : String.join(",", roles));
+        historial.setTipo("manual");
+        historial.setEventoId(null);
+        historial.setEnviadoEn(LocalDateTime.now());
+        historial.setDispositivosEnviados(enviados);
+        historialRepository.save(historial);
     }
 
     /**
      * Envía una notificación con datos a todos los usuarios con los roles especificados.
+     * Persiste el envío en el historial.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public void enviarPorRolesConDatos(String titulo, String cuerpo, List<String> roles, String tipo, String eventoId) {
         List<DispositivoPush> dispositivos;
         if (roles == null || roles.isEmpty()) {
@@ -140,13 +169,40 @@ public class NotificationService {
                 .toList();
         }
 
+        int enviados = 0;
         for (DispositivoPush dispositivo : dispositivos) {
             boolean enviado = fcmClient.sendNotificationWithData(
                 dispositivo.getFcmToken(), titulo, cuerpo, tipo, eventoId);
-            if (!enviado) {
+            if (enviado) {
+                enviados++;
+            } else {
                 marcarInactivo(dispositivo);
             }
         }
+
+        NotificacionHistorial historial = new NotificacionHistorial();
+        historial.setTitulo(titulo);
+        historial.setCuerpo(cuerpo);
+        historial.setRoles(roles == null || roles.isEmpty() ? null : String.join(",", roles));
+        historial.setTipo(tipo);
+        historial.setEventoId(eventoId != null ? Long.parseLong(eventoId) : null);
+        historial.setEnviadoEn(LocalDateTime.now());
+        historial.setDispositivosEnviados(enviados);
+        historialRepository.save(historial);
+    }
+
+    /** Verifica si ya se envió un recordatorio de un tipo para un evento. */
+    @Transactional(readOnly = true)
+    public boolean recordatorioYaEnviado(Long eventoId, String tipo) {
+        return historialRepository.existsByEventoIdAndTipo(eventoId, tipo);
+    }
+
+    /**
+     * Devuelve el historial de notificaciones enviadas, del más reciente al más antiguo.
+     */
+    @Transactional(readOnly = true)
+    public List<NotificacionHistorial> obtenerHistorial() {
+        return historialRepository.findAllByOrderByEnviadoEnDesc();
     }
 
     /**
